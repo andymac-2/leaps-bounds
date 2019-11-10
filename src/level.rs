@@ -2,15 +2,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::board::Board;
 use crate::cell::{Cell, CellCursor, Direction};
+use crate::console_log;
 use crate::cow::{Command, Cows};
 use crate::js_ffi::KeyboardState;
-use crate::util::clamp;
+use crate::util::{clamp, with_saved_context};
 use crate::{Assets, Context2D, Point};
+use crate::sprite_sheet::SpriteSheet;
+use crate::state_stack::StateStack;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 struct LevelState {
     board: Board,
     cows: Cows,
+    animation_frame: u8,
 }
 impl LevelState {
     fn new() -> Self {
@@ -24,10 +28,20 @@ impl LevelState {
                     (Point(10, 5), Direction::Right, vec![]),
                 ],
             ),
+            animation_frame: LevelState::INITIAL_ANIMATION_FRAME,
         }
     }
 
+    pub fn log_level(&self) {
+        console_log!("{}", ron::ser::to_string(self).unwrap());
+    }
+
+    fn left_click(&mut self, point: Point<i32>, cursor: CellCursor) {
+        self.board.left_click(point, cursor);
+    }
+
     fn command(&mut self, command: Command) {
+        self.animation_frame = (self.animation_frame + 1) % LevelState::TOTAL_ANIMATION_FRAMES;
         self.cows.command_player(&mut self.board, command);
     }
 
@@ -40,41 +54,41 @@ impl LevelState {
     ) {
         // TODO variable dimension/ofset of tiles.
         self.board
-            .draw(context, &assets.blocks, Point(0, 0), Point(32, 16));
-        self.cows
-            .draw(context, &assets.sprites, &old_state.cows, anim_progress);
+            .draw(context, &assets.blocks, Point(0, 0), Point(Level::LEVEL_WIDTH, Level::LEVEL_HEIGHT));
+        self.cows.draw(
+            context,
+            &assets.sprites,
+            &old_state.cows,
+            anim_progress,
+            self.animation_frame,
+        );
     }
-}
 
-#[derive(Debug, Clone, Copy)]
-enum TimeDirection {
-    Forward,
-    Backward,
+    const TOTAL_ANIMATION_FRAMES: u8 = 4;
+    const INITIAL_ANIMATION_FRAME: u8 = 0;
 }
 
 #[derive(Debug, Clone)]
 pub struct Level {
-    state: LevelState,
-    old_states: Vec<LevelState>,
-    time_direction: TimeDirection,
+    states: StateStack<LevelState>,
     animation_time: f64,
     cursor: CellCursor,
 }
 
-// INVARIANT:
 impl Level {
+    const LEVEL_WIDTH: i32 = 32;
+    const LEVEL_HEIGHT: i32 = 16;
     pub fn new() -> Self {
         Level {
-            state: LevelState::new(),
-            old_states: Vec::new(),
-            time_direction: TimeDirection::Forward,
+            states: StateStack::new(LevelState::new()),
             animation_time: 0.0,
             cursor: CellCursor::new(),
         }
     }
 
     pub fn left_click(&mut self, point: Point<i32>) {
-        self.state.board.left_click(point, self.cursor);
+        let cursor = self.cursor;
+        self.states.current_state_mut().left_click(point, cursor);
     }
     pub fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) {
         self.animation_time += dt;
@@ -89,9 +103,14 @@ impl Level {
             self.cursor.increment_colour();
         }
 
+        if keyboard_state.is_pressed("KeyL") {
+            self.states.current_state().log_level();
+        }
+
         if self.keyboard_event(keyboard_state, "KeyU") {
-            self.pop_state();
+            self.states.pop_state();
             self.animation_time = 0.0;
+            return;
         }
 
         let opt_command = if self.keyboard_event(keyboard_state, "ArrowUp") {
@@ -109,10 +128,10 @@ impl Level {
         };
 
         if let Some(command) = opt_command {
-            let mut new_state = self.state.clone();
-            new_state.command(command);
+            let mut current_state = self.states.current_state().clone();
+            current_state.command(command);
 
-            self.push_state(new_state);
+            self.states.push_state(current_state);
 
             self.animation_time = 0.0;
         }
@@ -128,58 +147,21 @@ impl Level {
         keyboard_state.is_pressed(code)
     }
 
-    fn push_state(&mut self, state: LevelState) {
-        match self.time_direction {
-            TimeDirection::Forward => {
-                let old_state = std::mem::replace(&mut self.state, state);
-                self.old_states.push(old_state);
-            }
-            // if the time direction is backward, the current state is actually
-            // on the top of the old_states stack, rather than in self.stack
-            TimeDirection::Backward => {
-                assert!(!self.old_states.is_empty());
-                self.state = state;
-                self.time_direction = TimeDirection::Forward;
-            }
-        }
-    }
-
-    fn pop_state(&mut self) {
-        match self.time_direction {
-            // The current state is actually on the top of the old_state stack
-            // rather than in self.state when the time direction is backwards.
-            // So all that's required to pop the state is to change the time
-            // direction
-            TimeDirection::Forward => {
-                if !self.old_states.is_empty() {
-                    self.time_direction = TimeDirection::Backward;
-                }
-            }
-            TimeDirection::Backward => self.state = self.old_states.pop().unwrap(),
-        }
-        if self.old_states.is_empty() {
-            self.time_direction = TimeDirection::Forward;
-        }
-    }
-
-    fn old_state(&self) -> &LevelState {
-        match self.time_direction {
-            TimeDirection::Forward => self.old_states.last().unwrap_or(&self.state),
-            TimeDirection::Backward => &self.state,
-        }
-    }
-
-    fn current_state(&self) -> &LevelState {
-        match self.time_direction {
-            TimeDirection::Forward => &self.state,
-            TimeDirection::Backward => self.old_states.last().unwrap(),
-        }
-    }
-
     pub fn draw(&self, context: &Context2D, assets: &Assets) {
         let anim_progress = clamp(self.animation_time / Level::ANIMATION_TIME, 0.0, 1.0);
-        self.current_state()
-            .draw(context, assets, self.old_state(), anim_progress);
+
+        let canvas_width = f64::from(Level::LEVEL_WIDTH) * f64::from(SpriteSheet::STANDARD_WIDTH);
+        let canvas_height = f64::from(Level::LEVEL_HEIGHT) * f64::from(SpriteSheet::STANDARD_HEIGHT);
+
+        with_saved_context(context, |ctx| {
+            ctx.set_fill_style(&wasm_bindgen::JsValue::from_str("rgb(103, 72, 47)"));
+            ctx.fill_rect(0.0, 0.0, canvas_width, canvas_height);
+
+            self.states.current_state()
+                .draw(context, assets, self.states.last_state(), anim_progress);
+            ctx.scale(2.0, 2.0).unwrap();
+            Cell::from(self.cursor).draw_cursor_cell(context, &assets.blocks)
+        });
     }
 
     const ANIMATION_TIME: f64 = 100.0;

@@ -29,9 +29,9 @@ impl SpriteSheet {
     pub fn get_image(&self) -> &Image {
         &self.image
     }
-    pub fn draw(&self, context: &Context2D, sprite_index: Point<u32>, offset: Point<f64>) {
-        let sx = f64::from(sprite_index.x() * self.sprite_width);
-        let sy = f64::from(sprite_index.y() * self.sprite_height);
+    pub fn draw(&self, context: &Context2D, sprite_index: Point<u8>, offset: Point<f64>) {
+        let sx = f64::from(sprite_index.x()) * f64::from(self.sprite_width);
+        let sy = f64::from(sprite_index.y()) * f64::from(self.sprite_height);
         let width = f64::from(self.sprite_width);
         let height = f64::from(self.sprite_height);
 

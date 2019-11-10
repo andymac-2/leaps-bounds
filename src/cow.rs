@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::board::Board;
 use crate::cell::{Cell, Colour, Direction};
 use crate::util::interpolate;
-use crate::{Context2D, Point, SpriteSheet};
+use crate::{console_log, Context2D, Point, SpriteSheet};
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum Command {
@@ -11,6 +11,8 @@ pub enum Command {
     Halt,
     Walk(Direction),
     PlaceBlock(Colour),
+    RotateRight,
+    RotateLeft,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Copy)]
@@ -76,25 +78,28 @@ impl Cows {
         self.update_children(cow_index, board);
         let cow = self.get_cow_mut(cow_index);
 
-        cow.animation = (cow.animation + 1) % Cow::TOTAL_ANIMATION_FRAMES;
         match command {
             Command::Auto => {
                 let cell = cow.get_cell(board);
                 match cell {
-                    Cell::Empty | Cell::ColouredBlock(_) | Cell::ArrowBlock(_) => {
-                        cow.walk_straight(board)
-                    }
-                    Cell::Arrow(direction) => cow.walk(board, direction),
+                    Cell::Empty
+                    | Cell::ColouredBlock(_)
+                    | Cell::ArrowBlock(_)
+                    | Cell::RotateLeft
+                    | Cell::RotateRight
+                    | Cell::Fence(_)
+                    | Cell::Wall(_) => cow.walk_bounce(board),
+                    Cell::Arrow(direction) => cow.walk_stop(board, direction),
                     Cell::ColouredArrow(colour, direction) => {
                         self.conditional_walk(cow_index, board, colour, direction)
                     }
                 };
             }
             Command::Halt => {}
-            Command::Walk(direction) => cow.walk(board, direction),
-            Command::PlaceBlock(colour) => {
-                board.set_cell(cow.position, Cell::ColouredBlock(colour));
-            }
+            Command::Walk(direction) => cow.walk_stop(board, direction),
+            Command::PlaceBlock(colour) => cow.place_block(board, colour),
+            Command::RotateLeft => cow.rotate_block_left(board),
+            Command::RotateRight => cow.rotate_block_right(board),
         }
     }
 
@@ -113,6 +118,16 @@ impl Cows {
             Cell::Arrow(_) => Command::Halt,
             Cell::ArrowBlock(direction) => Command::Walk(direction),
             Cell::ColouredArrow(_, _) => Command::Halt,
+            Cell::RotateRight => Command::RotateRight,
+            Cell::RotateLeft => Command::RotateLeft,
+            Cell::Fence(_) => {
+                console_log!("WARNING: Cow registered inside Fence");
+                Command::Halt
+            }
+            Cell::Wall(_) => {
+                console_log!("WARNING: Cow registered inside wall");
+                Command::Halt
+            }
         };
 
         children.into_iter().for_each(|child_index| {
@@ -132,9 +147,9 @@ impl Cows {
         });
 
         if is_correct_colour {
-            self.get_cow_mut(cow_index).walk(board, direction);
+            self.get_cow_mut(cow_index).walk_stop(board, direction);
         } else {
-            self.get_cow_mut(cow_index).walk_straight(board);
+            self.get_cow_mut(cow_index).walk_bounce(board);
         }
     }
 
@@ -144,13 +159,20 @@ impl Cows {
         sprite_sheet: &SpriteSheet,
         old_cows: &Cows,
         anim_progress: f64,
+        anim_frame: u8,
     ) {
         self.cows.iter().enumerate().for_each(|(index, cow)| {
             let old_position = old_cows
                 .cows
                 .get(index)
                 .map_or(cow.position, |old_cow| old_cow.position);
-            cow.draw(context, sprite_sheet, old_position, anim_progress);
+            cow.draw(
+                context,
+                sprite_sheet,
+                old_position,
+                anim_progress,
+                anim_frame,
+            );
         })
     }
 }
@@ -159,18 +181,14 @@ impl Cows {
 pub struct Cow {
     position: Point<i32>,
     direction: Direction,
-    animation: u32,
     children: Vec<CowIndex>,
 }
 
 impl Cow {
-    const TOTAL_ANIMATION_FRAMES: u32 = 4;
-    const INITIAL_ANIMATION_FRAME: u32 = 0;
     pub fn new(position: Point<i32>, direction: Direction, children: Vec<CowIndex>) -> Self {
         Cow {
             position,
             direction,
-            animation: Cow::INITIAL_ANIMATION_FRAME,
             children,
         }
     }
@@ -179,15 +197,50 @@ impl Cow {
         *board.get_cell(&self.position)
     }
 
-    // Unused argument board: see TODO.
-    fn walk(&mut self, board: &Board, direction: Direction) {
-        // TODO: check for collisions;
-        self.position.increment_2d(direction);
+    // walk until you hit a wall.
+    fn walk_stop(&mut self, board: &Board, direction: Direction) {
         self.direction = direction;
+
+        let mut forwards = self.position.clone();
+        forwards.increment_2d(direction);
+
+        if !board.get_cell(&forwards).is_solid_to_cows() {
+            self.position.increment_2d(direction);
+            return;
+        }
     }
 
-    fn walk_straight(&mut self, board: &Board) {
-        self.walk(board, self.direction);
+    // when you hit a wall, turn around and bounce the other way.
+    fn walk_bounce(&mut self, board: &Board) {
+        let mut forwards = self.position.clone();
+        forwards.increment_2d(self.direction);
+
+        if !board.get_cell(&forwards).is_solid_to_cows() {
+            self.position.increment_2d(self.direction);
+            return;
+        }
+
+        let opposite_dir = self.direction.opposite();
+        self.direction = opposite_dir;
+
+        let mut backwards = self.position.clone();
+        backwards.increment_2d(opposite_dir);
+
+        if !board.get_cell(&backwards).is_solid_to_cows() {
+            self.position.increment_2d(opposite_dir);
+        }
+    }
+
+    fn place_block(&mut self, board: &mut Board, colour: Colour) {
+        board.set_cell(self.position, Cell::ColouredBlock(colour));
+    }
+
+    fn rotate_block_right(&mut self, board: &mut Board) {
+        board.map_cell(self.position, Cell::rotate_right);
+    }
+
+    fn rotate_block_left(&mut self, board: &mut Board) {
+        board.map_cell(self.position, Cell::rotate_left);
     }
 
     pub fn draw(
@@ -196,6 +249,7 @@ impl Cow {
         sprite_sheet: &SpriteSheet,
         old_position: Point<i32>,
         anim_progress: f64,
+        animation_frame: u8,
     ) {
         let x = interpolate(
             old_position.x().into(),
@@ -208,7 +262,7 @@ impl Cow {
             anim_progress,
         );
 
-        let sprite_index = Point(self.animation, self.direction.to_index());
+        let sprite_index = Point(animation_frame, self.direction.into());
         let screen_position = Point(
             x * f64::from(SpriteSheet::STANDARD_WIDTH),
             y * f64::from(SpriteSheet::STANDARD_HEIGHT),

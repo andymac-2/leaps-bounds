@@ -40,6 +40,7 @@ window.KeyboardState = class {
     }
 }
 
+const EMPTY = 255;
 window.draw_layer = function (context, image, sprite_width, sprite_height, data, width, height) {
     const cells = new Uint8Array(imports.bg.memory.buffer, data, width * height * 2);
     for (var row = 0; row < height; row++) {
@@ -49,6 +50,10 @@ window.draw_layer = function (context, image, sprite_width, sprite_height, data,
             let index = (row * width + col) * 2;
             let source_x = cells[index] * sprite_width;
             let source_y = cells[index + 1] * sprite_height;
+
+            if (source_x === EMPTY && source_y === EMPTY) {
+                continue;
+            }
 
             let dest_x = col * sprite_width;
 
@@ -91,8 +96,6 @@ function init (rust) {
     let loop = new_time => {
         const dt = new_time - old_time;
         old_time = new_time;
-
-        context.clearRect(0, 0, canvas.width, canvas.height);
 
         app.step(dt);
         app.draw(context, assets);

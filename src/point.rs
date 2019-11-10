@@ -18,7 +18,7 @@ impl Point<i32> {
             Direction::Up => self.1 -= 1,
             Direction::Right => self.0 += 1,
             Direction::Down => self.1 += 1,
-            Direction::Left => self.0 -= 1,
+            Direction::Left => self.0 -= 1, 
         }
     }
 }
