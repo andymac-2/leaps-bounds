@@ -1,70 +1,35 @@
+use std::convert::TryFrom;
+
 use im_rc::OrdMap;
 use serde::{Deserialize, Serialize};
 
-use crate::cell::{Cell, CellCursor, Direction};
+use super::cell::{Cell, CellCursor, GroundCell, OverlayCell};
+use crate::direction::Direction;
 use crate::js_ffi::draw_layer;
 use crate::{Context2D, Image, Point, SpriteSheet};
 
-// #[derive(Debug, Clone)]
-// pub struct Serial<T>(T);
-// impl<T> std::ops::Deref for Serial<T> {
-//     type Target = T;
-//     fn deref (&self) -> &T {
-//         &self.0
-//     }
-// }
-// impl<T> std::ops::DerefMut for Serial<T> {
-//     fn deref_mut (&mut self) -> &mut T {
-//         &mut self.0
-//     }
-// }
-// impl<K, V> Serialize for Serial<OrdMap<K, V>>
-// where
-//     K: Serialize + Ord,
-//     V: Serialize,
-// {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         let entries: Vec<_> = self.0.iter().collect();
-//         serializer.serialize_newtype_struct("Serial", &entries)
-//     }
-// }
-// impl<'de, K, V> Deserialize<'de> for Serial<OrdMap<K, V>>
-// where
-//     K: Deserialize<'de> + Clone + Ord,
-//     V: Deserialize<'de> + Clone,
-// {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         let entries = <Vec<(K, V)>>::deserialize(deserializer)?;
-//         Ok(Serial(entries.into()))
-//     }
-// }
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Board {
-    board: OrdMap<Point<i32>, Cell>,
-    default_cell: Cell,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LevelLayer<T: Clone> {
+    layer: OrdMap<Point<i32>, T>,
+    default: T,
 }
-impl Board {
-    pub fn new(default_cell: Cell) -> Self {
-        Board {
-            board: OrdMap::new(),
-            default_cell,
+impl<T> LevelLayer<T>
+where
+    T: Clone + PartialEq + Cell,
+{
+    pub fn new(default: T) -> Self {
+        LevelLayer {
+            layer: OrdMap::new(),
+            default,
         }
     }
-
-    pub fn get_cell(&self, point: &Point<i32>) -> &Cell {
-        self.board.get(point).unwrap_or(&self.default_cell)
+    pub fn get_cell(&self, point: &Point<i32>) -> &T {
+        self.layer.get(point).unwrap_or(&self.default)
     }
 
-    pub fn set_cell(&mut self, point: Point<i32>, mut cell: Cell) {
+    pub fn set_cell(&mut self, point: Point<i32>, mut cell: T) {
         let mut set_surrounds = |direction| {
-            let mut adjacent = point.clone();
+            let mut adjacent = point;
             adjacent.increment_2d(direction);
 
             self.map_cell_unchecked(adjacent, |mut other| {
@@ -81,36 +46,26 @@ impl Board {
         self.set_cell_unchecked(point, cell);
     }
 
-    // does not check for surrounding tiles when inserting.
-    fn set_cell_unchecked(&mut self, point: Point<i32>, cell: Cell) {
-        if cell == self.default_cell {
-            let _ = self.board.remove(&point);
+    pub fn map_cell<F>(&mut self, point: Point<i32>, func: F)
+    where
+        F: FnOnce(T) -> T,
+    {
+        self.set_cell(point, func(self.get_cell(&point).clone()));
+    }
+
+    fn set_cell_unchecked(&mut self, point: Point<i32>, cell: T) {
+        if cell == self.default {
+            let _ = self.layer.remove(&point);
         } else {
-            self.board.insert(point, cell);
+            self.layer.insert(point, cell);
         }
     }
 
-    // does not check for surrounding tiles when inserting.
     fn map_cell_unchecked<F>(&mut self, point: Point<i32>, func: F)
     where
-        F: FnOnce(Cell) -> Cell,
+        F: FnOnce(T) -> T,
     {
-        self.set_cell_unchecked(point, func(*self.get_cell(&point)));
-    }
-
-    pub fn map_cell<F>(&mut self, point: Point<i32>, func: F)
-    where
-        F: FnOnce(Cell) -> Cell,
-    {
-        self.set_cell(point, func(*self.get_cell(&point)));
-    }
-
-    pub fn left_click(&mut self, point: Point<i32>, cursor: CellCursor) {
-        let x_index = point.x() / (SpriteSheet::STANDARD_WIDTH as i32);
-        let y_index = point.y() / (SpriteSheet::STANDARD_HEIGHT as i32);
-        let index = Point(x_index, y_index);
-
-        self.set_cell(index, cursor.into());
+        self.set_cell_unchecked(point, func(self.get_cell(&point).clone()));
     }
 
     pub fn draw(
@@ -134,6 +89,68 @@ impl Board {
         }
 
         layer.draw(context, blocks.get_image());
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Board {
+    ground: LevelLayer<GroundCell>,
+    overlay: LevelLayer<OverlayCell>,
+}
+impl Board {
+    pub fn new(default_cell: GroundCell, default_overlay: OverlayCell) -> Self {
+        Board {
+            ground: LevelLayer::new(default_cell),
+            overlay: LevelLayer::new(default_overlay),
+        }
+    }
+
+    pub fn get_ground_cell(&self, point: &Point<i32>) -> &GroundCell {
+        self.ground.get_cell(point)
+    }
+    pub fn get_overlay_cell(&self, point: &Point<i32>) -> &OverlayCell {
+        self.overlay.get_cell(point)
+    }
+    pub fn set_ground_cell(&mut self, point: Point<i32>, cell: GroundCell) {
+        self.ground.set_cell(point, cell);
+    }
+    pub fn map_ground_cell<F>(&mut self, point: Point<i32>, func: F)
+    where
+        F: FnOnce(GroundCell) -> GroundCell,
+    {
+        self.ground.map_cell(point, func)
+    }
+
+    pub fn left_click(&mut self, point: Point<i32>, cursor: CellCursor) {
+        let x_index = point.x() / (SpriteSheet::STANDARD_WIDTH as i32);
+        let y_index = point.y() / (SpriteSheet::STANDARD_HEIGHT as i32);
+        let index = Point(x_index, y_index);
+
+        if let Ok(cell) = GroundCell::try_from(cursor) {
+            self.ground.set_cell(index, cell)
+        } else if let Ok(cell) = OverlayCell::try_from(cursor) {
+            self.overlay.set_cell(index, cell)
+        }
+    }
+
+    pub fn draw_ground(
+        &self,
+        context: &Context2D,
+        blocks: &SpriteSheet,
+        top_left: Point<i32>,
+        dimensions: Point<i32>,
+    ) {
+        self.ground.draw(context, blocks, top_left, dimensions);
+    }
+
+    pub fn draw_overlay(
+        &self,
+        context: &Context2D,
+        blocks: &SpriteSheet,
+        top_left: Point<i32>,
+        dimensions: Point<i32>,
+    ) {
+        self.overlay.draw(context, blocks, top_left, dimensions);
     }
 }
 

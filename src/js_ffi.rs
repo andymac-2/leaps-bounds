@@ -31,4 +31,7 @@ extern "C" {
         width: i32,
         height: i32,
     );
+
+    #[wasm_bindgen]
+    pub fn draw_rope(context: &Context2D, start_x: f64, start_y: f64, end_x: f64, end_y: f64);
 }

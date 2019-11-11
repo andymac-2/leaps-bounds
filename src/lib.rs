@@ -1,12 +1,12 @@
 use wasm_bindgen::prelude::*;
 
-mod board;
 mod cell;
-mod cow;
+mod direction;
 mod js_ffi;
 mod level;
 mod point;
 mod sprite_sheet;
+mod state_stack;
 mod util;
 
 use js_ffi::KeyboardState;

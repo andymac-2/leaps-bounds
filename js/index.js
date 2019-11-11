@@ -71,6 +71,53 @@ window.draw_layer = function (context, image, sprite_width, sprite_height, data,
     }
 }
 
+window.draw_rope = function(context, start_x, start_y, end_x, end_y) {
+    context.save();
+
+    const dx = start_x - end_x;
+    const dy = start_y - end_y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const y_offset = dy / length;
+    const x_offset = dx / length;
+
+    context.beginPath();
+    // end before start so the rope looks like it's "spooling" out from the
+    // owner
+    context.moveTo(end_x, end_y);
+    context.lineTo(start_x, start_y);
+
+    context.strokeStyle = "black";
+    context.lineWidth = 4;
+    context.stroke();
+
+    context.lineWidth = 2;
+    // light brown
+    context.strokeStyle = "rgb(176, 157, 95)";
+    context.stroke();
+
+    // dark brown
+    context.strokeStyle = "rgb(77, 61, 44)";
+    context.setLineDash([2, 4]);
+    // first line offset
+
+    context.beginPath();
+    context.moveTo(end_x - y_offset, end_y + x_offset);
+    context.lineTo(start_x - y_offset, start_y + x_offset);
+
+    // dark brown
+    context.stroke();
+
+    //second line offset
+    context.beginPath();
+    context.moveTo(end_x + y_offset, end_y - x_offset);
+    context.lineTo(start_x + y_offset, start_y - x_offset);
+
+    context.lineDashOffset = 0.75;
+    context.stroke();
+
+    context.restore();
+}
+
 function init (rust) {
     let app = rust.LeapsAndBounds.new();
 

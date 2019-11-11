@@ -1,9 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::board::Board;
-use crate::cell::{Cell, Colour, Direction};
-use crate::util::interpolate;
+use crate::direction::Direction;
+use crate::point::interpolate_2d;
 use crate::{console_log, Context2D, Point, SpriteSheet};
+
+use super::board::Board;
+use super::cell::{Colour, GroundCell};
+use super::SuccessState;
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum Command {
@@ -66,6 +69,14 @@ impl Cows {
         }
     }
 
+    pub fn success_state(&self, board: &Board) -> SuccessState {
+        let mut acc = SuccessState::Succeeded;
+        for cow in self.cows.iter() {
+            acc.combine(board.get_overlay_cell(&cow.position).success_state())
+        };
+        acc
+    }
+
     fn get_cow(&self, cow_index: CowIndex) -> &Cow {
         &self.cows[cow_index.0]
     }
@@ -82,15 +93,15 @@ impl Cows {
             Command::Auto => {
                 let cell = cow.get_cell(board);
                 match cell {
-                    Cell::Empty
-                    | Cell::ColouredBlock(_)
-                    | Cell::ArrowBlock(_)
-                    | Cell::RotateLeft
-                    | Cell::RotateRight
-                    | Cell::Fence(_)
-                    | Cell::Wall(_) => cow.walk_bounce(board),
-                    Cell::Arrow(direction) => cow.walk_stop(board, direction),
-                    Cell::ColouredArrow(colour, direction) => {
+                    GroundCell::Empty
+                    | GroundCell::ColouredBlock(_)
+                    | GroundCell::ArrowBlock(_)
+                    | GroundCell::RotateLeft
+                    | GroundCell::RotateRight
+                    | GroundCell::Fence(_)
+                    | GroundCell::Wall(_) => cow.walk_bounce(board),
+                    GroundCell::Arrow(direction) => cow.walk_stop(board, direction),
+                    GroundCell::ColouredArrow(colour, direction) => {
                         self.conditional_walk(cow_index, board, colour, direction)
                     }
                 };
@@ -113,18 +124,18 @@ impl Cows {
         let children = cow.children.clone();
 
         let command = match cell {
-            Cell::Empty => Command::Halt,
-            Cell::ColouredBlock(colour) => Command::PlaceBlock(colour),
-            Cell::Arrow(_) => Command::Halt,
-            Cell::ArrowBlock(direction) => Command::Walk(direction),
-            Cell::ColouredArrow(_, _) => Command::Halt,
-            Cell::RotateRight => Command::RotateRight,
-            Cell::RotateLeft => Command::RotateLeft,
-            Cell::Fence(_) => {
+            GroundCell::Empty => Command::Halt,
+            GroundCell::ColouredBlock(colour) => Command::PlaceBlock(colour),
+            GroundCell::Arrow(_) => Command::Halt,
+            GroundCell::ArrowBlock(direction) => Command::Walk(direction),
+            GroundCell::ColouredArrow(_, _) => Command::Halt,
+            GroundCell::RotateRight => Command::RotateRight,
+            GroundCell::RotateLeft => Command::RotateLeft,
+            GroundCell::Fence(_) => {
                 console_log!("WARNING: Cow registered inside Fence");
                 Command::Halt
             }
-            Cell::Wall(_) => {
+            GroundCell::Wall(_) => {
                 console_log!("WARNING: Cow registered inside wall");
                 Command::Halt
             }
@@ -143,7 +154,7 @@ impl Cows {
         direction: Direction,
     ) {
         let is_correct_colour = self.get_cow(cow_index).children.iter().any(|child_index| {
-            self.get_cow(*child_index).get_cell(board) == Cell::ColouredBlock(colour)
+            self.get_cow(*child_index).get_cell(board) == GroundCell::ColouredBlock(colour)
         });
 
         if is_correct_colour {
@@ -151,6 +162,26 @@ impl Cows {
         } else {
             self.get_cow_mut(cow_index).walk_bounce(board);
         }
+    }
+
+    fn get_screen_position(
+        &self,
+        old_cows: &Cows,
+        index: CowIndex,
+        anim_progress: f64,
+    ) -> Point<f64> {
+        let new_position = self.get_cow(index).position;
+        let old_position = old_cows
+            .cows
+            .get(index.0)
+            .map_or(new_position, |old_cow| old_cow.position);
+        let grid_position = interpolate_2d(old_position, new_position, anim_progress);
+
+        grid_position
+            * Point(
+                f64::from(SpriteSheet::STANDARD_WIDTH),
+                f64::from(SpriteSheet::STANDARD_HEIGHT),
+            )
     }
 
     pub fn draw(
@@ -161,6 +192,32 @@ impl Cows {
         anim_progress: f64,
         anim_frame: u8,
     ) {
+        context.save();
+
+        context
+            .translate(
+                f64::from(SpriteSheet::STANDARD_WIDTH / 2),
+                f64::from(SpriteSheet::STANDARD_HEIGHT / 4),
+            )
+            .unwrap();
+
+        self.cows.iter().enumerate().for_each(|(index, cow)| {
+            let this_position = self.get_screen_position(old_cows, CowIndex(index), anim_progress);
+            for index in &cow.children {
+                let other_position = self.get_screen_position(old_cows, *index, anim_progress);
+                crate::js_ffi::draw_rope(
+                    context,
+                    this_position.x(),
+                    this_position.y(),
+                    other_position.x(),
+                    other_position.y(),
+                );
+            }
+        });
+
+        context.restore();
+
+        // drow cows
         self.cows.iter().enumerate().for_each(|(index, cow)| {
             let old_position = old_cows
                 .cows
@@ -173,7 +230,7 @@ impl Cows {
                 anim_progress,
                 anim_frame,
             );
-        })
+        });
     }
 }
 
@@ -193,18 +250,18 @@ impl Cow {
         }
     }
 
-    fn get_cell(&self, board: &Board) -> Cell {
-        *board.get_cell(&self.position)
+    fn get_cell(&self, board: &Board) -> GroundCell {
+        *board.get_ground_cell(&self.position)
     }
 
     // walk until you hit a wall.
     fn walk_stop(&mut self, board: &Board, direction: Direction) {
         self.direction = direction;
 
-        let mut forwards = self.position.clone();
+        let mut forwards = self.position;
         forwards.increment_2d(direction);
 
-        if !board.get_cell(&forwards).is_solid_to_cows() {
+        if !board.get_ground_cell(&forwards).is_solid_to_cows() {
             self.position.increment_2d(direction);
             return;
         }
@@ -212,10 +269,10 @@ impl Cow {
 
     // when you hit a wall, turn around and bounce the other way.
     fn walk_bounce(&mut self, board: &Board) {
-        let mut forwards = self.position.clone();
+        let mut forwards = self.position;
         forwards.increment_2d(self.direction);
 
-        if !board.get_cell(&forwards).is_solid_to_cows() {
+        if !board.get_ground_cell(&forwards).is_solid_to_cows() {
             self.position.increment_2d(self.direction);
             return;
         }
@@ -223,24 +280,34 @@ impl Cow {
         let opposite_dir = self.direction.opposite();
         self.direction = opposite_dir;
 
-        let mut backwards = self.position.clone();
+        let mut backwards = self.position;
         backwards.increment_2d(opposite_dir);
 
-        if !board.get_cell(&backwards).is_solid_to_cows() {
+        if !board.get_ground_cell(&backwards).is_solid_to_cows() {
             self.position.increment_2d(opposite_dir);
         }
     }
 
     fn place_block(&mut self, board: &mut Board, colour: Colour) {
-        board.set_cell(self.position, Cell::ColouredBlock(colour));
+        board.set_ground_cell(self.position, GroundCell::ColouredBlock(colour));
     }
 
     fn rotate_block_right(&mut self, board: &mut Board) {
-        board.map_cell(self.position, Cell::rotate_right);
+        board.map_ground_cell(self.position, GroundCell::rotate_right);
     }
 
     fn rotate_block_left(&mut self, board: &mut Board) {
-        board.map_cell(self.position, Cell::rotate_left);
+        board.map_ground_cell(self.position, GroundCell::rotate_left);
+    }
+
+    fn get_screen_position(&self, other: Point<i32>, anim_progress: f64) -> Point<f64> {
+        let grid_position = interpolate_2d(other, self.position, anim_progress);
+
+        grid_position
+            * Point(
+                f64::from(SpriteSheet::STANDARD_WIDTH),
+                f64::from(SpriteSheet::STANDARD_HEIGHT),
+            )
     }
 
     pub fn draw(
@@ -251,23 +318,9 @@ impl Cow {
         anim_progress: f64,
         animation_frame: u8,
     ) {
-        let x = interpolate(
-            old_position.x().into(),
-            self.position.x().into(),
-            anim_progress,
-        );
-        let y = interpolate(
-            old_position.y().into(),
-            self.position.y().into(),
-            anim_progress,
-        );
+        let position = self.get_screen_position(old_position, anim_progress);
+        let sprite_index = Point(animation_frame, self.direction as u8);
 
-        let sprite_index = Point(animation_frame, self.direction.into());
-        let screen_position = Point(
-            x * f64::from(SpriteSheet::STANDARD_WIDTH),
-            y * f64::from(SpriteSheet::STANDARD_HEIGHT),
-        );
-
-        sprite_sheet.draw(context, sprite_index, screen_position);
+        sprite_sheet.draw(context, sprite_index, position);
     }
 }

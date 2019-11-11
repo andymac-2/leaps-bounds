@@ -1,14 +1,42 @@
 use serde::{Deserialize, Serialize};
 
-use crate::board::Board;
-use crate::cell::{Cell, CellCursor, Direction};
 use crate::console_log;
-use crate::cow::{Command, Cows};
+use crate::direction::Direction;
 use crate::js_ffi::KeyboardState;
-use crate::util::{clamp, with_saved_context};
-use crate::{Assets, Context2D, Point};
 use crate::sprite_sheet::SpriteSheet;
 use crate::state_stack::StateStack;
+use crate::util::{clamp, with_saved_context};
+use crate::{Assets, Context2D, Point};
+
+mod cow;
+mod cell;
+mod board;
+
+use cow::{Command, Cows};
+use board::Board;
+use cell::{CellCursor, GroundCell, OverlayCell};
+
+#[derive(Copy, Clone, Debug)]
+enum SuccessState {
+    Failed = 0,
+    Running = 1,
+    Succeeded = 2,
+}
+impl SuccessState {
+    fn combine(&mut self, other: SuccessState) {
+        match (*self, other) {
+            (SuccessState::Failed, _) | (_, SuccessState::Failed) => {
+                *self = SuccessState::Failed;
+            },
+            (SuccessState::Running, _) | (_, SuccessState::Running) => {
+                *self = SuccessState::Running;
+            },
+            _ => {
+                *self = SuccessState::Succeeded;
+            },
+        }
+    }
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 struct LevelState {
@@ -19,7 +47,7 @@ struct LevelState {
 impl LevelState {
     fn new() -> Self {
         LevelState {
-            board: Board::new(Cell::Empty),
+            board: Board::new(GroundCell::Empty, OverlayCell::Empty),
             cows: Cows::new(
                 0,
                 vec![
@@ -34,6 +62,10 @@ impl LevelState {
 
     pub fn log_level(&self) {
         console_log!("{}", ron::ser::to_string(self).unwrap());
+    }
+
+    fn success_state(&self) -> SuccessState {
+        self.cows.success_state(&self.board)
     }
 
     fn left_click(&mut self, point: Point<i32>, cursor: CellCursor) {
@@ -53,14 +85,24 @@ impl LevelState {
         anim_progress: f64,
     ) {
         // TODO variable dimension/ofset of tiles.
-        self.board
-            .draw(context, &assets.blocks, Point(0, 0), Point(Level::LEVEL_WIDTH, Level::LEVEL_HEIGHT));
+        self.board.draw_ground(
+            context,
+            &assets.blocks,
+            Point(0, 0),
+            Point(Level::LEVEL_WIDTH, Level::LEVEL_HEIGHT),
+        );
         self.cows.draw(
             context,
             &assets.sprites,
             &old_state.cows,
             anim_progress,
             self.animation_frame,
+        );
+        self.board.draw_overlay(
+            context,
+            &assets.blocks,
+            Point(0, 0),
+            Point(Level::LEVEL_WIDTH, Level::LEVEL_HEIGHT),
         );
     }
 
@@ -151,16 +193,21 @@ impl Level {
         let anim_progress = clamp(self.animation_time / Level::ANIMATION_TIME, 0.0, 1.0);
 
         let canvas_width = f64::from(Level::LEVEL_WIDTH) * f64::from(SpriteSheet::STANDARD_WIDTH);
-        let canvas_height = f64::from(Level::LEVEL_HEIGHT) * f64::from(SpriteSheet::STANDARD_HEIGHT);
+        let canvas_height =
+            f64::from(Level::LEVEL_HEIGHT) * f64::from(SpriteSheet::STANDARD_HEIGHT);
 
         with_saved_context(context, |ctx| {
-            ctx.set_fill_style(&wasm_bindgen::JsValue::from_str("rgb(103, 72, 47)"));
+            ctx.set_fill_style(&wasm_bindgen::JsValue::from_str("rgb(113, 46, 25)"));
             ctx.fill_rect(0.0, 0.0, canvas_width, canvas_height);
 
-            self.states.current_state()
-                .draw(context, assets, self.states.last_state(), anim_progress);
+            self.states.current_state().draw(
+                context,
+                assets,
+                self.states.last_state(),
+                anim_progress,
+            );
             ctx.scale(2.0, 2.0).unwrap();
-            Cell::from(self.cursor).draw_cursor_cell(context, &assets.blocks)
+            self.cursor.draw(context, &assets.blocks)
         });
     }
 
