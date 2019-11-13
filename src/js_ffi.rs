@@ -25,8 +25,8 @@ extern "C" {
     pub fn draw_layer(
         context: &Context2D,
         image: &Image,
-        sprite_width: u32,
-        sprite_height: u32,
+        sprite_width: i32,
+        sprite_height: i32,
         data: *const u8,
         width: i32,
         height: i32,

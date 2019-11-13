@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 use crate::direction::Direction;
+use crate::level::Level;
 use crate::{Context2D, Point, SpriteSheet};
 
 use super::board::Layer;
@@ -12,8 +13,8 @@ mod cell_type;
 mod colour;
 mod surroundings;
 
-pub use cell_cursor::CellCursor;
-use cell_type::CellType;
+pub use cell_cursor::{CellCursor, CellCursorEntry, CellPalette, PaletteResult};
+pub use cell_type::CellType;
 pub use colour::Colour;
 use surroundings::Surroundings;
 
@@ -21,10 +22,9 @@ pub trait Cell: Sized {
     /// If both cells are equal, set them to show the correct graphics.
     #[allow(clippy::mem_discriminant_non_enum)]
     fn calculate_surround(&mut self, other: &mut Self, direction: Direction) {
-        if std::mem::discriminant(self) == std::mem::discriminant(other) {
-            self.set_surround(direction, true);
-            other.set_surround(direction.opposite(), true);
-        }
+        let is_adjacent = std::mem::discriminant(self) == std::mem::discriminant(other);
+        self.set_surround(direction, is_adjacent);
+        other.set_surround(direction.opposite(), is_adjacent);
     }
     /// tell a cell that it's neghbor is of the same / different type.
     fn set_surround(&mut self, direction: Direction, is_adjacent: bool);
@@ -35,9 +35,35 @@ pub trait Cell: Sized {
     fn draw_into_layer(&self, layer: &mut Layer) {
         layer.add_cell(self.get_sprite_sheet_index());
     }
-    fn draw(&self, context: &Context2D, sprite_sheet: &SpriteSheet) {
-        if let Some(index) = self.get_sprite_sheet_index() {
-            sprite_sheet.draw(context, index, Point(5.0, 5.0));
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum OverworldCell {
+    Empty,
+    Fence(Surroundings),
+    Wall(Surroundings),
+    BlockedPath(Surroundings),
+    ClearPath(Surroundings),
+}
+impl Cell for OverworldCell {
+    fn set_surround(&mut self, direction: Direction, is_adjacent: bool) {
+        match *self {
+            OverworldCell::Fence(ref mut surrounds) 
+            | OverworldCell::Wall(ref mut surrounds) 
+            | OverworldCell::BlockedPath(ref mut surrounds)
+            | OverworldCell::ClearPath(ref mut surrounds)=> {
+                surrounds.set_surround(direction, is_adjacent)
+            },
+            OverworldCell::Empty => {},
+        }
+    }
+    fn get_sprite_sheet_index (&self) -> Option<Point<u8>> {
+        match *self {
+            OverworldCell::Fence(surrounds) => Some(Point((surrounds).into(), 14)),
+            OverworldCell::Wall(surrounds) => Some(Point((surrounds).into(), 15)),
+            OverworldCell::BlockedPath(surrounds) => Some(Point((surrounds).into(), 8)),
+            OverworldCell::ClearPath(surrounds) => Some(Point((surrounds).into(), 9)),
+            | OverworldCell::Empty => None
         }
     }
 }
@@ -47,6 +73,8 @@ pub enum OverlayCell {
     Empty,
     Success(Surroundings),
     Failure(Surroundings),
+    Input(Surroundings),
+    Output(Surroundings),
 }
 impl Cell for OverlayCell {
     fn get_sprite_sheet_index(&self) -> Option<Point<u8>> {
@@ -54,23 +82,31 @@ impl Cell for OverlayCell {
             OverlayCell::Empty => None,
             OverlayCell::Success(surrounds) => Some(Point((*surrounds).into(), 13)),
             OverlayCell::Failure(surrounds) => Some(Point((*surrounds).into(), 12)),
+            OverlayCell::Input(surrounds) => Some(Point((*surrounds).into(), 11)),
+            OverlayCell::Output(surrounds) => Some(Point((*surrounds).into(), 10)),
         }
     }
     fn set_surround(&mut self, direction: Direction, is_adjacent: bool) {
         match *self {
-            OverlayCell::Success(ref mut surrounds) | OverlayCell::Failure(ref mut surrounds) => {
+            OverlayCell::Success(ref mut surrounds) 
+            | OverlayCell::Failure(ref mut surrounds) 
+            | OverlayCell::Input(ref mut surrounds)
+            | OverlayCell::Output(ref mut surrounds)=> {
                 surrounds.set_surround(direction, is_adjacent)
-            }
-            _ => {}
+            },
+            OverlayCell::Empty => {}
         }
     }
 }
-impl TryFrom<CellCursor> for OverlayCell {
+impl TryFrom<PaletteResult<CellType>> for OverlayCell {
     type Error = ();
-    fn try_from(cell_cursor: CellCursor) -> Result<Self, ()> {
-        match cell_cursor {
-            CellCursor(CellType::Success, _, _) => Ok(OverlayCell::Success(Surroundings::new())),
-            CellCursor(CellType::Failure, _, _) => Ok(OverlayCell::Failure(Surroundings::new())),
+    fn try_from(PaletteResult(cell_type, colour, direction): PaletteResult<CellType>) -> Result<Self, ()> {
+        match (cell_type, colour) {
+            (CellType::Overlay, Colour::Green) => Ok(OverlayCell::Success(Surroundings::new())),
+            (CellType::Overlay, Colour::Red) => Ok(OverlayCell::Failure(Surroundings::new())),
+            (CellType::Overlay, Colour::Orange) => Ok(OverlayCell::Input(Surroundings::new())),
+            (CellType::Overlay, Colour::Blue) => Ok(OverlayCell::Output(Surroundings::new())),
+            (CellType::Empty, _) => Ok(OverlayCell::Empty),
             _ => Err(()),
         }
     }
@@ -80,7 +116,9 @@ impl OverlayCell {
         match self {
             OverlayCell::Success(_) => SuccessState::Succeeded,
             OverlayCell::Failure(_) => SuccessState::Failed,
-            OverlayCell::Empty => SuccessState::Running,
+            OverlayCell::Empty 
+            | OverlayCell::Input(_)
+            | OverlayCell::Output(_) => SuccessState::Running,
         }
     }
 }
@@ -104,7 +142,8 @@ impl Cell for GroundCell {
             GroundCell::ColouredBlock(colour) => Some(Point((*colour).into(), 0)),
             GroundCell::Arrow(direction) => Some(Point((*direction).into(), 7)),
             GroundCell::ColouredArrow(colour, direction) => {
-                Some(Point((*direction).into(), Into::<u8>::into(*colour) + 8))
+                let x = Into::<u8>::into(*colour) * 4 + Into::<u8>::into(*direction);
+                Some(Point(x, 3))
             }
             GroundCell::ArrowBlock(direction) => Some(Point((*direction).into(), 1)),
             GroundCell::RotateLeft => Some(Point(1, 2)),
@@ -122,23 +161,22 @@ impl Cell for GroundCell {
         }
     }
 }
-impl TryFrom<CellCursor> for GroundCell {
+impl TryFrom<PaletteResult<CellType>> for GroundCell {
     type Error = ();
-    fn try_from(cell_cursor: CellCursor) -> Result<Self, ()> {
-        match cell_cursor {
-            CellCursor(CellType::Empty, _, _) => Ok(GroundCell::Empty),
-            CellCursor(CellType::ColouredBlock, colour, _) => Ok(GroundCell::ColouredBlock(colour)),
-            CellCursor(CellType::Arrow, _, direction) => Ok(GroundCell::Arrow(direction)),
-            CellCursor(CellType::ColouredArrow, colour, direction) => {
+    fn try_from(PaletteResult(cell_type, colour, direction): PaletteResult<CellType>) -> Result<Self, ()> {
+        match cell_type {
+            CellType::Empty => Ok(GroundCell::Empty),
+            CellType::ColouredBlock => Ok(GroundCell::ColouredBlock(colour)),
+            CellType::Arrow => Ok(GroundCell::Arrow(direction)),
+            CellType::ColouredArrow => {
                 Ok(GroundCell::ColouredArrow(colour, direction))
             }
-            CellCursor(CellType::ArrowBlock, _, direction) => Ok(GroundCell::ArrowBlock(direction)),
-            CellCursor(CellType::RotateLeft, _, _) => Ok(GroundCell::RotateLeft),
-            CellCursor(CellType::RotateRight, _, _) => Ok(GroundCell::RotateRight),
-            CellCursor(CellType::Fence, _, _) => Ok(GroundCell::Fence(Surroundings::new())),
-            CellCursor(CellType::Wall, _, _) => Ok(GroundCell::Wall(Surroundings::new())),
-            CellCursor(CellType::Success, _, _) => Err(()),
-            CellCursor(CellType::Failure, _, _) => Err(()),
+            CellType::ArrowBlock => Ok(GroundCell::ArrowBlock(direction)),
+            CellType::RotateLeft => Ok(GroundCell::RotateLeft),
+            CellType::RotateRight => Ok(GroundCell::RotateRight),
+            CellType::Fence => Ok(GroundCell::Fence(Surroundings::new())),
+            CellType::Wall => Ok(GroundCell::Wall(Surroundings::new())),
+            CellType::Overlay => Err(()),
         }
     }
 }

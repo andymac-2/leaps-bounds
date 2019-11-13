@@ -2,7 +2,7 @@ use crate::direction::Direction;
 use crate::util::interpolate;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct Point<T>(pub T, pub T);
 
 impl<T: Copy> Point<T> {
@@ -11,6 +11,16 @@ impl<T: Copy> Point<T> {
     }
     pub fn y(&self) -> T {
         self.1
+    }
+}
+impl<T: Ord> Ord for Point<T> {
+    fn cmp (&self, other: &Self) -> std::cmp::Ordering {
+        self.1.cmp(&other.1).then_with(|| self.0.cmp(&other.0))
+    }
+}
+impl<T: Ord> PartialOrd for Point<T> {
+    fn partial_cmp (&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 impl Point<i32> {
@@ -31,6 +41,36 @@ where
     type Output = Point<<T as std::ops::Mul<Rhs>>::Output>;
     fn mul(self, rhs: Point<Rhs>) -> Self::Output {
         Point(self.0 * rhs.0, self.1 * rhs.1)
+    }
+}
+impl<Rhs, T> std::ops::Div<Point<Rhs>> for Point<T>
+where
+    T: std::ops::Div<Rhs>,
+    Rhs: Clone,
+{
+    type Output = Point<<T as std::ops::Div<Rhs>>::Output>;
+    fn div(self, rhs: Point<Rhs>) -> Self::Output {
+        Point(self.0 / rhs.0, self.1 / rhs.1)
+    }
+}
+impl<Rhs, T> std::ops::Sub<Point<Rhs>> for Point<T>
+where
+    T: std::ops::Sub<Rhs>,
+    Rhs: Clone,
+{
+    type Output = Point<<T as std::ops::Sub<Rhs>>::Output>;
+    fn sub(self, rhs: Point<Rhs>) -> Self::Output {
+        Point(self.0 - rhs.0, self.1 - rhs.1)
+    }
+}
+impl<Rhs, T> std::ops::Add<Point<Rhs>> for Point<T>
+where
+    T: std::ops::Add<Rhs>,
+    Rhs: Clone,
+{
+    type Output = Point<<T as std::ops::Add<Rhs>>::Output>;
+    fn add(self, rhs: Point<Rhs>) -> Self::Output {
+        Point(self.0 + rhs.0, self.1 + rhs.1)
     }
 }
 

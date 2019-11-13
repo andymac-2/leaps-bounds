@@ -5,9 +5,9 @@ pub fn interpolate(start: f64, end: f64, proportion: f64) -> f64 {
     start + ((end - start) * proportion)
 }
 
-pub fn with_saved_context<F: FnOnce(&Context2D)>(context: &Context2D, func: F) {
+pub fn with_saved_context<F: FnOnce()>(context: &Context2D, func: F) {
     context.save();
-    func(context);
+    func();
     context.restore();
 }
 

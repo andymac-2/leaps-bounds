@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use im_rc::OrdMap;
 use serde::{Deserialize, Serialize};
 
-use super::cell::{Cell, CellCursor, GroundCell, OverlayCell};
+use super::cell::{Cell, CellPalette, CellType, GroundCell, OverlayCell};
 use crate::direction::Direction;
 use crate::js_ffi::draw_layer;
 use crate::{Context2D, Image, Point, SpriteSheet};
@@ -121,14 +121,15 @@ impl Board {
         self.ground.map_cell(point, func)
     }
 
-    pub fn left_click(&mut self, point: Point<i32>, cursor: CellCursor) {
+    pub fn left_click(&mut self, point: Point<i32>, palette: CellPalette<CellType>) {
         let x_index = point.x() / (SpriteSheet::STANDARD_WIDTH as i32);
         let y_index = point.y() / (SpriteSheet::STANDARD_HEIGHT as i32);
         let index = Point(x_index, y_index);
 
-        if let Ok(cell) = GroundCell::try_from(cursor) {
+        if let Ok(cell) = GroundCell::try_from(palette.value()) {
             self.ground.set_cell(index, cell)
-        } else if let Ok(cell) = OverlayCell::try_from(cursor) {
+        }
+        if let Ok(cell) = OverlayCell::try_from(palette.value()) {
             self.overlay.set_cell(index, cell)
         }
     }
@@ -157,8 +158,8 @@ impl Board {
 pub struct Layer {
     top_left: Point<i32>,
     grid_dimensions: Point<i32>,
-    cell_dimensions: Point<u32>,
-    dest_cell_dimensions: Point<u32>,
+    cell_dimensions: Point<i32>,
+    dest_cell_dimensions: Point<i32>,
     buffer: Vec<u8>,
 }
 impl Layer {
@@ -168,8 +169,8 @@ impl Layer {
     pub fn new(
         top_left: Point<i32>,
         grid_dimensions: Point<i32>,
-        cell_dimensions: Point<u32>,
-        dest_cell_dimensions: Point<u32>,
+        cell_dimensions: Point<i32>,
+        dest_cell_dimensions: Point<i32>,
     ) -> Self {
         assert!(grid_dimensions.x() >= 0);
         assert!(grid_dimensions.y() >= 0);

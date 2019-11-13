@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-mod cell;
+mod component;
 mod direction;
 mod js_ffi;
 mod level;
@@ -13,6 +13,7 @@ use js_ffi::KeyboardState;
 use level::Level;
 use point::Point;
 use sprite_sheet::SpriteSheet;
+use component::Component;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
 // allocator.
@@ -74,10 +75,10 @@ impl LeapsAndBounds {
     }
     pub fn draw(&self, context: &Context2D, assets: &Assets) {
         context.save();
-        self.level.draw(context, assets);
+        self.level.draw(context, assets, ());
         context.restore();
     }
     pub fn left_click(&mut self, x: i32, y: i32) {
-        self.level.left_click(Point(x, y));
+        self.level.click(Point(x, y));
     }
 }

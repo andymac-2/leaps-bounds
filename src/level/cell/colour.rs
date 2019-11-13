@@ -8,6 +8,7 @@ pub enum Colour {
     Orange = 3,
 }
 impl Colour {
+    pub const TOTAL_COLOURS: u8 = 4;
     pub fn increment(self) -> Self {
         match self {
             Colour::Red => Colour::Blue,
@@ -15,6 +16,11 @@ impl Colour {
             Colour::Green => Colour::Orange,
             Colour::Orange => Colour::Red,
         }
+    }
+}
+impl Default for Colour {
+    fn default() -> Self {
+        Colour::Red
     }
 }
 impl Into<u8> for Colour {

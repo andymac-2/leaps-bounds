@@ -8,6 +8,7 @@ pub enum Direction {
     Left = 3,
 }
 impl Direction {
+    pub const TOTAL_DIRECTIONS: u8 = 4;
     pub fn increment(self) -> Self {
         match self {
             Direction::Up => Direction::Right,
@@ -31,6 +32,11 @@ impl Direction {
             Direction::Down => Direction::Up,
             Direction::Left => Direction::Right,
         }
+    }
+}
+impl Default for Direction {
+    fn default() -> Self {
+        Direction::Up
     }
 }
 impl Into<u8> for Direction {

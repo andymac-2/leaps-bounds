@@ -6,7 +6,13 @@ use crate::{console_log, Context2D, Point, SpriteSheet};
 
 use super::board::Board;
 use super::cell::{Colour, GroundCell};
-use super::SuccessState;
+use super::{LevelState, SuccessState};
+
+#[derive(Clone, Debug, Copy, Serialize, Deserialize)]
+pub enum CowSprite {
+    White = 0,
+    Grey = 1,
+}
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum Command {
@@ -27,19 +33,19 @@ pub struct Cows {
     cows: Vec<Cow>,
 }
 impl Cows {
-    pub fn new(player: usize, cow_data: Vec<(Point<i32>, Direction, Vec<usize>)>) -> Self {
+    pub fn new(player: usize, cow_data: Vec<(Point<i32>, Direction, CowSprite, Vec<usize>)>) -> Self {
         let mut parent_vec = vec![true; cow_data.len()];
         parent_vec[player] = false;
 
         let cows = cow_data
             .into_iter()
-            .map(|(position, direction, children)| {
+            .map(|(position, direction, sprite, children)| {
                 children
                     .iter()
                     .for_each(|child_index| parent_vec[*child_index] = false);
 
                 let children_indices = children.into_iter().map(CowIndex).collect();
-                Cow::new(position, direction, children_indices)
+                Cow::new(position, direction, children_indices, sprite)
             })
             .collect();
 
@@ -239,14 +245,16 @@ pub struct Cow {
     position: Point<i32>,
     direction: Direction,
     children: Vec<CowIndex>,
+    sprite: CowSprite,
 }
 
 impl Cow {
-    pub fn new(position: Point<i32>, direction: Direction, children: Vec<CowIndex>) -> Self {
+    pub fn new(position: Point<i32>, direction: Direction, children: Vec<CowIndex>, sprite: CowSprite) -> Self {
         Cow {
             position,
             direction,
             children,
+            sprite,
         }
     }
 
@@ -319,7 +327,7 @@ impl Cow {
         animation_frame: u8,
     ) {
         let position = self.get_screen_position(old_position, anim_progress);
-        let sprite_index = Point(animation_frame, self.direction as u8);
+        let sprite_index = Point(self.direction as u8 * LevelState::TOTAL_ANIMATION_FRAMES + animation_frame, self.sprite as u8);
 
         sprite_sheet.draw(context, sprite_index, position);
     }

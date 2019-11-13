@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::console_log;
+use crate::component;
 use crate::direction::Direction;
 use crate::js_ffi::KeyboardState;
 use crate::sprite_sheet::SpriteSheet;
@@ -12,12 +13,12 @@ mod cow;
 mod cell;
 mod board;
 
-use cow::{Command, Cows};
+use cow::{Command, Cows, CowSprite};
 use board::Board;
-use cell::{CellCursor, GroundCell, OverlayCell};
+use cell::{CellPalette, GroundCell, OverlayCell, CellType};
 
 #[derive(Copy, Clone, Debug)]
-enum SuccessState {
+pub enum SuccessState {
     Failed = 0,
     Running = 1,
     Succeeded = 2,
@@ -51,9 +52,9 @@ impl LevelState {
             cows: Cows::new(
                 0,
                 vec![
-                    (Point(3, 3), Direction::Right, vec![]),
-                    (Point(10, 10), Direction::Right, vec![2]),
-                    (Point(10, 5), Direction::Right, vec![]),
+                    (Point(3, 3), Direction::Right, CowSprite::Grey, vec![]),
+                    (Point(10, 10), Direction::Right, CowSprite::White, vec![2]),
+                    (Point(10, 5), Direction::Right, CowSprite::White, vec![]),
                 ],
             ),
             animation_frame: LevelState::INITIAL_ANIMATION_FRAME,
@@ -68,7 +69,7 @@ impl LevelState {
         self.cows.success_state(&self.board)
     }
 
-    fn left_click(&mut self, point: Point<i32>, cursor: CellCursor) {
+    fn left_click(&mut self, point: Point<i32>, cursor: CellPalette<CellType>) {
         self.board.left_click(point, cursor);
     }
 
@@ -114,7 +115,7 @@ impl LevelState {
 pub struct Level {
     states: StateStack<LevelState>,
     animation_time: f64,
-    cursor: CellCursor,
+    palette: CellPalette<CellType>,
 }
 
 impl Level {
@@ -124,25 +125,18 @@ impl Level {
         Level {
             states: StateStack::new(LevelState::new()),
             animation_time: 0.0,
-            cursor: CellCursor::new(),
+            palette: CellPalette::new(CellType::full_palette()),
         }
-    }
-
-    pub fn left_click(&mut self, point: Point<i32>) {
-        let cursor = self.cursor;
-        self.states.current_state_mut().left_click(point, cursor);
     }
     pub fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) {
         self.animation_time += dt;
 
-        if keyboard_state.is_pressed("KeyT") {
-            self.cursor.increment_type();
-        }
-        if keyboard_state.is_pressed("KeyR") {
-            self.cursor.increment_direction();
-        }
-        if keyboard_state.is_pressed("KeyC") {
-            self.cursor.increment_colour();
+        let success_state = self.states.current_state().success_state();
+        if let SuccessState::Succeeded = success_state {
+            if self.is_finished_animating() {
+                console_log!("Success!");
+            }
+            return;
         }
 
         if keyboard_state.is_pressed("KeyL") {
@@ -189,16 +183,33 @@ impl Level {
         keyboard_state.is_pressed(code)
     }
 
-    pub fn draw(&self, context: &Context2D, assets: &Assets) {
+    const ANIMATION_TIME: f64 = 100.0;
+    const COOLDOWN_TIME: f64 = 50.0;
+}
+impl component::Component for Level {
+    type Args = ();
+    fn bounding_rect(&self) -> component::Rect {
+        component::Rect {
+            top_left: Point(0, 0),
+            dimensions: Point(512, 256),
+        }
+    }
+    fn click(&mut self, point: Point<i32>) -> bool {
+        // TODO, click events
+        // let cursor = self.palette;
+        // self.states.current_state_mut().left_click(point, cursor);
+        self.palette.click(point)
+    }
+    fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
         let anim_progress = clamp(self.animation_time / Level::ANIMATION_TIME, 0.0, 1.0);
 
         let canvas_width = f64::from(Level::LEVEL_WIDTH) * f64::from(SpriteSheet::STANDARD_WIDTH);
         let canvas_height =
             f64::from(Level::LEVEL_HEIGHT) * f64::from(SpriteSheet::STANDARD_HEIGHT);
 
-        with_saved_context(context, |ctx| {
-            ctx.set_fill_style(&wasm_bindgen::JsValue::from_str("rgb(113, 46, 25)"));
-            ctx.fill_rect(0.0, 0.0, canvas_width, canvas_height);
+        with_saved_context(context, || {
+            context.set_fill_style(&wasm_bindgen::JsValue::from_str("rgb(113, 46, 25)"));
+            context.fill_rect(0.0, 0.0, canvas_width, canvas_height);
 
             self.states.current_state().draw(
                 context,
@@ -206,11 +217,19 @@ impl Level {
                 self.states.last_state(),
                 anim_progress,
             );
-            ctx.scale(2.0, 2.0).unwrap();
-            self.cursor.draw(context, &assets.blocks)
+            self.palette.draw(context, assets, ())
         });
     }
+}
 
-    const ANIMATION_TIME: f64 = 100.0;
-    const COOLDOWN_TIME: f64 = 50.0;
+pub struct GodLevel {
+    cell_cursor: CellPalette<CellType>,
+    initial_state: LevelState,
+    running_state: Option<GodLevelRunningState>,
+}
+pub struct GodLevelRunningState {
+    current_state: LevelState,
+    old_state: LevelState,
+    animation_time: f64,
+    speed: f64,
 }

@@ -1,3 +1,5 @@
+use super::CellCursorEntry;
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum CellType {
     Empty,
@@ -9,8 +11,7 @@ pub enum CellType {
     RotateLeft,
     Fence,
     Wall,
-    Success,
-    Failure,
+    Overlay,
 }
 impl CellType {
     pub fn increment(self) -> Self {
@@ -23,9 +24,22 @@ impl CellType {
             CellType::RotateRight => CellType::RotateLeft,
             CellType::RotateLeft => CellType::Fence,
             CellType::Fence => CellType::Wall,
-            CellType::Wall => CellType::Success,
-            CellType::Success => CellType::Failure,
-            CellType::Failure => CellType::Empty,
+            CellType::Wall => CellType::Overlay,
+            CellType::Overlay => CellType::Empty,
         }
+    }
+    pub fn full_palette() -> Vec<CellCursorEntry<CellType>> {
+        vec![
+            CellType::Empty.into(),
+            CellType::ColouredBlock.into(),
+            CellType::Arrow.into(),
+            CellType::ColouredArrow.into(),
+            CellType::ArrowBlock.into(),
+            CellType::RotateRight.into(),
+            CellType::RotateLeft.into(),
+            CellType::Fence.into(),
+            CellType::Wall.into(),
+            CellType::Overlay.into(),
+        ]
     }
 }

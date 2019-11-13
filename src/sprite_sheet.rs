@@ -4,15 +4,15 @@ use crate::{Context2D, Image};
 #[derive(Debug, Clone)]
 pub struct SpriteSheet {
     image: Image,
-    sprite_width: u32,
-    sprite_height: u32,
+    sprite_width: i32,
+    sprite_height: i32,
 }
 
 impl SpriteSheet {
-    pub const STANDARD_WIDTH: u32 = 16;
-    pub const STANDARD_HEIGHT: u32 = 16;
+    pub const STANDARD_WIDTH: i32 = 16;
+    pub const STANDARD_HEIGHT: i32 = 16;
 
-    pub fn new(image: Image, sprite_width: u32, sprite_height: u32) -> Self {
+    pub fn new(image: Image, sprite_width: i32, sprite_height: i32) -> Self {
         SpriteSheet {
             image,
             sprite_height,
