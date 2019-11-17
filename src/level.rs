@@ -18,6 +18,9 @@ use cow_level::CowLevel;
 use board::{Board};
 use cell::{PaletteResult, GroundCell, OverlayCell, CellType};
 
+// green.
+const BG_FILL: &str = "#669238";
+
 #[derive(Debug, Clone, Copy)]
 pub enum KeyboardCommand {
     Direction(Direction),
@@ -33,6 +36,7 @@ impl KeyboardCommand {
 }
 
 trait Level {
+
     fn is_finished_animating(&self) -> bool;
     fn get_keyboard_command(&self, keyboard_state: &KeyboardState) -> Option<KeyboardCommand> {
         if self.keyboard_event(keyboard_state, "ArrowUp") {
@@ -62,13 +66,25 @@ trait Pasture<C> {
 }
 
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SuccessState {
     Failed = 0,
     Running = 1,
     Succeeded = 2,
 }
 impl SuccessState {
+    fn is_running (&self) -> bool{
+        match self {
+            SuccessState::Running => true,
+            _ => false,
+        }
+    }
+    fn is_success (&self) -> bool {
+        match self {
+            SuccessState::Succeeded => true,
+            _ => false,
+        }
+    }
     fn combine(&mut self, other: SuccessState) {
         match (*self, other) {
             (SuccessState::Failed, _) | (_, SuccessState::Failed) => {

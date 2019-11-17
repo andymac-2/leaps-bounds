@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Deserialize;
 
 use crate::{Context2D, Assets};
@@ -7,15 +9,32 @@ use crate::js_ffi::KeyboardState;
 use crate::level::{overworld_level, cow_level};
 use crate::point::Point;
 
+// A generic data object, kind of like JSON.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Object {
+    Null,
+    Bool(bool),
+    Int(i64),
+    Str(String),
+    Array(Vec<Object>),
+    Map(HashMap::<String, Object>),
+}
+
 pub enum NextScene {
     Continue,
-    Return,
-    Call(usize),
-    Jump(usize)
+    Return(Object),
+    Call(usize, Object),
+    Jump(usize, Object)
 }
 
 pub trait Scene: Component {
     fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene;
+
+    fn returned_into(&mut self, _object: Object) {}
+    fn called_into(&mut self, _object: Object) {}
+    fn jumped_into(&mut self, object: Object) {
+        self.called_into(object)
+    }
 }
 
 pub struct Scenes {
@@ -40,23 +59,26 @@ impl Scene for Scenes {
         let next_scene = self.scenes[self.current_scene].step(dt, keyboard_state);
         match next_scene {
             NextScene::Continue => NextScene::Continue,
-            NextScene::Return => {
+            NextScene::Return(object) => {
                 if let Some(next_scene) = self.scene_stack.pop() {
                     self.current_scene = next_scene;
+                    self.scenes[self.current_scene].returned_into(object);
                     NextScene::Continue
                 }
                 else {
-                    NextScene::Return
+                    NextScene::Return(object)
                 }
             },
-            NextScene::Call(next_scene) => {
+            NextScene::Call(next_scene, object) => {
                 self.scene_stack.push(self.current_scene);
                 self.current_scene = next_scene;
+                self.scenes[self.current_scene].called_into(object);
                 assert!(self.current_scene < self.scenes.len());
                 NextScene::Continue
             },
-            NextScene::Jump(next_scene) => {
+            NextScene::Jump(next_scene, object) => {
                 self.current_scene = next_scene;
+                self.scenes[self.current_scene].jumped_into(object);
                 assert!(self.current_scene < self.scenes.len());
                 NextScene::Continue
             }
@@ -72,8 +94,9 @@ impl Scenes {
                     include_str!("level_data/overworld_1.ron"),
                     [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2],
                 ),
-                Box::new(crate::level::overworld_level::OverworldLevel::default()),
-                cow_level(include_str!("level_data/test_level_abcd.ron"))
+                cow_level(include_str!("level_data/level_0_0.ron")),
+                cow_level(include_str!("level_data/level_0_1.ron")),
+                cow_level(include_str!("level_data/test_level_abcd.ron")),
             ],
             current_scene: 0,
             scene_stack: Vec::new(),

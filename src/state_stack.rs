@@ -4,6 +4,8 @@ enum TimeDirection {
     Backward,
 }
 
+/// Invariant: If the time direction is backwards, the state_stack must have at
+/// least one element in it.
 #[derive(Debug, Clone)]
 pub struct StateStack<T> {
     // The stack is one element plus a vector of elements. By construction, This
@@ -52,6 +54,15 @@ impl<T> StateStack<T> {
         if self.state_stack.is_empty() {
             self.time_direction = TimeDirection::Forward;
         }
+    }
+
+    pub fn purge_states(&mut self) {
+        if let Some(state) = self.state_stack.get_mut(0) {
+            std::mem::swap(state, &mut self.stack_top);
+        }
+
+        self.state_stack = Vec::new();
+        self.time_direction = TimeDirection::Forward;
     }
 
     /// This returns a reference to the last state, That is, the last current

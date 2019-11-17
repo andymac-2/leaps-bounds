@@ -1,13 +1,14 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::{component, KeyboardState, Context2D, Assets, scene, util};
-use crate::scene::NextScene;
 use crate::point::Point;
+use crate::scene::{NextScene, Object};
+use crate::direction::Direction;
+use crate::{component, scene, util, Assets, Context2D, KeyboardState};
 
-use super::{cell, board, LevelState, Level, KeyboardCommand};
-use super::cell::{OverworldCell, OverworldCellType};
+use super::cell::{OverworldCell, OverworldCellType, Surroundings};
 use super::cow::Cow;
 use super::cow_level::CowLevel;
+use super::{board, cell, KeyboardCommand, Level, LevelState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct OverworldLevelState {
@@ -29,20 +30,25 @@ impl component::Component for OverworldLevelState {
     fn bounding_rect(&self) -> component::Rect {
         CowLevel::BOUNDING_RECT
     }
-    fn draw(&self, context: &Context2D, assets: &Assets, (old_position, anim_progress): Self::Args) {
+    fn draw(
+        &self,
+        context: &Context2D,
+        assets: &Assets,
+        (old_position, anim_progress): Self::Args,
+    ) {
         self.board.draw(
-            context, 
-            &assets.blocks, 
+            context,
+            &assets.blocks,
             Point(0, 0),
             Point(CowLevel::LEVEL_WIDTH, CowLevel::LEVEL_HEIGHT),
         );
 
         self.player.draw(
-            context, 
+            context,
             &assets.sprites,
             old_position,
             anim_progress,
-            self.animation_frame
+            self.animation_frame,
         );
     }
 }
@@ -54,16 +60,21 @@ impl OverworldLevelState {
         let position = self.get_player_position();
         self.board.get_cell(&position)
     }
-    fn set_cell(&mut self, point: Point<i32>, value: cell::OverworldCell) {
+    fn get_cell(&self, point: &Point<i32>) -> &cell::OverworldCell {
+        self.board.get_cell(point)
+    } 
+    fn set_cell_at_cursor(&mut self, point: Point<i32>, value: cell::OverworldCell) {
         let index = board::get_grid_index(point);
+        self.board.set_cell(index, value);
+    }
+    fn set_cell_at_index(&mut self, index: Point<i32>, value: cell::OverworldCell) {
         self.board.set_cell(index, value);
     }
     fn command(&mut self, command: KeyboardCommand) {
         self.animation_frame = (self.animation_frame + 1) % LevelState::TOTAL_ANIMATION_FRAMES;
         match command {
-            KeyboardCommand::Direction(direction) => 
-                self.player.walk_stop(&self.board, direction),
-            KeyboardCommand::Space => {},
+            KeyboardCommand::Direction(direction) => self.player.walk_stop(&self.board, direction),
+            KeyboardCommand::Space => {}
         }
     }
 }
@@ -75,6 +86,7 @@ pub struct OverworldLevel {
     old_position: Point<i32>,
     animation_time: f64,
     levels: [usize; 16],
+    to_reveal_next: Vec<Point<i32>>, 
 }
 impl Default for OverworldLevel {
     fn default() -> Self {
@@ -87,6 +99,7 @@ impl Default for OverworldLevel {
             old_position,
             animation_time: 0.0,
             levels: [usize::max_value(); 16],
+            to_reveal_next: Vec::new(),
         }
     }
 }
@@ -109,31 +122,33 @@ impl component::Component for OverworldLevel {
         }
 
         let value: cell::OverworldCell = self.cell_palette.value().into();
-        self.state.set_cell(point, value.clone());
+        self.state.set_cell_at_cursor(point, value.clone());
 
         true
     }
     fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
         let anim_progress = util::clamp(self.animation_time / CowLevel::ANIMATION_TIME, 0.0, 1.0);
-        self.fill_bg(context, "rgb(113, 46, 25)");
+        self.fill_bg(context, super::BG_FILL);
 
-        self.state.draw(context, assets, (self.old_position, anim_progress));
+        self.state
+            .draw(context, assets, (self.old_position, anim_progress));
         self.cell_palette.draw(context, assets, ());
     }
 }
 impl scene::Scene for OverworldLevel {
+    fn returned_into(&mut self, object: Object) {
+        assert!(self.to_reveal_next.is_empty());
+        if let Object::Bool(true) = object {
+            let point = self.state.get_player_position();
+            Self::add_adjacents(&mut self.to_reveal_next, &point);
+        }
+    }
     fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene {
         self.animation_time += dt;
 
-        // enter and exot into levels
-        // let success_state = self.success_state();
-        // if let SuccessState::Succeeded = success_state {
-        //     if self.is_finished_animating() {
-        //         crate::console_log!("Success!");
-        //         return NextScene::Return;
-        //     }
-        //     return NextScene::Continue;
-        // }
+        if !self.to_reveal_next.is_empty() {
+            return self.reveal();
+        }
 
         if keyboard_state.is_pressed("KeyL") {
             self.log_level()
@@ -144,7 +159,7 @@ impl scene::Scene for OverworldLevel {
             if command.is_space() {
                 if let OverworldCell::Level(id, _) = self.current_cell() {
                     let next_level = self.levels[usize::from(*id)];
-                    return NextScene::Call(next_level);
+                    return NextScene::Call(next_level, Object::Null);
                 }
             }
             self.state.command(command);
@@ -152,10 +167,11 @@ impl scene::Scene for OverworldLevel {
             self.animation_time = 0.0;
         };
 
-        return NextScene::Continue;
+        NextScene::Continue
     }
 }
 impl OverworldLevel {
+    const CELL_REVEAL_TIME: f64 = 300.0;
     fn log_level(&self) {
         crate::console_log!("{}", ron::ser::to_string(&self.state).unwrap());
     }
@@ -169,9 +185,47 @@ impl OverworldLevel {
             old_position: position,
             animation_time: 0.0,
             levels: connections,
+            to_reveal_next: Vec::new(),
         }
     }
     fn current_cell(&self) -> &cell::OverworldCell {
         self.state.get_current_cell()
+    }
+
+    fn reveal(&mut self) -> NextScene {
+        if self.animation_time < OverworldLevel::CELL_REVEAL_TIME {
+            return NextScene::Continue;
+        }
+
+        let mut new_reveals = Vec::new();
+
+        self.animation_time = 0.0;
+        for point in self.to_reveal_next.iter() {
+            let cell = self.state.get_cell(point);
+            if cell.can_be_cleared() {
+                self.state.set_cell_at_index(*point, OverworldCell::ClearPath(Surroundings::new()));
+                Self::add_adjacents(&mut new_reveals, point);
+            }
+        };
+        
+        self.to_reveal_next = new_reveals;
+        NextScene::Continue
+    }
+    fn add_adjacents(vector: &mut Vec<Point<i32>>, point: &Point<i32>) {
+        let mut up = *point;
+        up.increment_2d(Direction::Up);
+        vector.push(up);
+
+        let mut right = *point;
+        right.increment_2d(Direction::Right);
+        vector.push(right);
+
+        let mut down = *point;
+        down.increment_2d(Direction::Down);
+        vector.push(down);
+
+        let mut left = *point;
+        left.increment_2d(Direction::Left);
+        vector.push(left);
     }
 }

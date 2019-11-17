@@ -15,7 +15,7 @@ mod surroundings;
 pub use cell_cursor::{CellCursorEntry, CellPalette, PaletteResult};
 pub use cell_type::CellType;
 pub use colour::Colour;
-use surroundings::Surroundings;
+pub use surroundings::Surroundings;
 
 pub trait Cell: Sized {
     /// If both cells are equal, set them to show the correct graphics.
@@ -135,7 +135,7 @@ impl Cell for OverworldCell {
                 let x_offset = level_num - (level_num % 4) + u8::from(colour);
                 Some(Point(x_offset, y_offset))
             },
-            OverworldCell::Empty => None
+            OverworldCell::Empty => Some(Point(0, 4)),
         }
     }
 }
@@ -154,6 +154,14 @@ impl From<PaletteResult<OverworldCellType>> for OverworldCell {
             OverworldCellType::Level4 => OverworldCell::Level(4, colour),
             OverworldCellType::Level5 => OverworldCell::Level(5, colour),
             OverworldCellType::Level6 => OverworldCell::Level(6, colour),
+        }
+    }
+}
+impl OverworldCell {
+    pub fn can_be_cleared (&self) -> bool {
+        match self {
+            OverworldCell::BlockedPath(_) => true,
+            _ => false,
         }
     }
 }
@@ -228,7 +236,7 @@ pub enum GroundCell {
 impl Cell for GroundCell {
     fn get_sprite_sheet_index(&self) -> Option<Point<u8>> {
         match self {
-            GroundCell::Empty => None,
+            GroundCell::Empty => Some(Point(0, 4)),
             GroundCell::ColouredBlock(colour) => Some(Point((*colour).into(), 0)),
             GroundCell::Arrow(direction) => Some(Point((*direction).into(), 7)),
             GroundCell::ColouredArrow(colour, direction) => {
