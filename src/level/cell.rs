@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 use crate::direction::Direction;
-use crate::level::Level;
-use crate::{Context2D, Point, SpriteSheet};
+use crate::{Point};
 
 use super::board::Layer;
 use super::SuccessState;
@@ -13,7 +12,7 @@ mod cell_type;
 mod colour;
 mod surroundings;
 
-pub use cell_cursor::{CellCursor, CellCursorEntry, CellPalette, PaletteResult};
+pub use cell_cursor::{CellCursorEntry, CellPalette, PaletteResult};
 pub use cell_type::CellType;
 pub use colour::Colour;
 use surroundings::Surroundings;
@@ -36,14 +35,80 @@ pub trait Cell: Sized {
         layer.add_cell(self.get_sprite_sheet_index());
     }
 }
+pub trait PastureCell: Cell {
+    fn is_solid_to_cows(&self) -> bool;
+}
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum OverworldCellType {
+    Empty = 0,
+    Fence = 1,
+    Wall = 2,
+    BlockedPath = 3,
+    ClearPath = 4,
+    Level0 = 5,
+    Level1 = 6,
+    Level2 = 7,
+    Level3 = 8,
+    Level4 = 9,
+    Level5 = 10,
+    Level6 = 11,
+    // if you decide to add these, make sure you add them to the full_palette
+    
+    // Level7 = 12,
+    // Level8 = 13,
+    // Level9 = 14,
+    // Level10 = 15,
+    // Level11 = 16,
+    // Level12 = 17,
+    // Level13 = 18,
+    // Level14 = 19,
+    // Level15 = 20,
+}
+impl OverworldCellType {
+    pub fn full_palette() -> Vec<CellCursorEntry<Self>> {
+        vec![
+            OverworldCellType::Empty.into(),
+            OverworldCellType::Fence.into(),
+            OverworldCellType::Wall.into(),
+            OverworldCellType::BlockedPath.into(),
+            OverworldCellType::ClearPath.into(),
+            OverworldCellType::Level0.into(),
+            OverworldCellType::Level1.into(),
+            OverworldCellType::Level2.into(),
+            OverworldCellType::Level3.into(),
+            OverworldCellType::Level4.into(),
+            OverworldCellType::Level5.into(),
+            OverworldCellType::Level6.into(),
+        ]
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum OverworldCell {
     Empty,
     Fence(Surroundings),
     Wall(Surroundings),
     BlockedPath(Surroundings),
     ClearPath(Surroundings),
+    Level(u8, Colour),
+}
+impl Default for OverworldCell {
+    fn default () -> Self {
+        OverworldCell::Empty
+    }
+}
+impl PastureCell for OverworldCell {
+    fn is_solid_to_cows(&self) -> bool {
+        match self {
+            OverworldCell::Empty => true,
+            OverworldCell::Fence(_) => true,
+            OverworldCell::Wall(_) => true, 
+            OverworldCell::BlockedPath(_) => true, 
+            OverworldCell::ClearPath(_) => false,
+            OverworldCell::Level(_, _) => false,  
+        }
+    }
 }
 impl Cell for OverworldCell {
     fn set_surround(&mut self, direction: Direction, is_adjacent: bool) {
@@ -55,6 +120,7 @@ impl Cell for OverworldCell {
                 surrounds.set_surround(direction, is_adjacent)
             },
             OverworldCell::Empty => {},
+            OverworldCell::Level(_, _) => {},
         }
     }
     fn get_sprite_sheet_index (&self) -> Option<Point<u8>> {
@@ -63,7 +129,31 @@ impl Cell for OverworldCell {
             OverworldCell::Wall(surrounds) => Some(Point((surrounds).into(), 15)),
             OverworldCell::BlockedPath(surrounds) => Some(Point((surrounds).into(), 8)),
             OverworldCell::ClearPath(surrounds) => Some(Point((surrounds).into(), 9)),
-            | OverworldCell::Empty => None
+            OverworldCell::Level(level_num, colour) => {
+                assert!(level_num <= 0x0F);
+                let y_offset = 16 + (level_num % 4);
+                let x_offset = level_num - (level_num % 4) + u8::from(colour);
+                Some(Point(x_offset, y_offset))
+            },
+            OverworldCell::Empty => None
+        }
+    }
+}
+impl From<PaletteResult<OverworldCellType>> for OverworldCell {
+    fn from(PaletteResult(cell_type, colour, _): PaletteResult<OverworldCellType>) -> Self {
+        match cell_type {
+            OverworldCellType::Empty => OverworldCell::Empty,
+            OverworldCellType::Fence => OverworldCell::Fence(Surroundings::new()),
+            OverworldCellType::Wall => OverworldCell::Wall(Surroundings::new()),
+            OverworldCellType::BlockedPath => OverworldCell::BlockedPath(Surroundings::new()),
+            OverworldCellType::ClearPath => OverworldCell::ClearPath(Surroundings::new()),
+            OverworldCellType::Level0 => OverworldCell::Level(0, colour),
+            OverworldCellType::Level1 => OverworldCell::Level(1, colour),
+            OverworldCellType::Level2 => OverworldCell::Level(2, colour),
+            OverworldCellType::Level3 => OverworldCell::Level(3, colour),
+            OverworldCellType::Level4 => OverworldCell::Level(4, colour),
+            OverworldCellType::Level5 => OverworldCell::Level(5, colour),
+            OverworldCellType::Level6 => OverworldCell::Level(6, colour),
         }
     }
 }
@@ -161,6 +251,14 @@ impl Cell for GroundCell {
         }
     }
 }
+impl PastureCell for GroundCell {
+    fn is_solid_to_cows(&self) -> bool {
+        match self {
+            GroundCell::Fence(_) | GroundCell::Wall(_) => true,
+            _ => false,
+        }
+    }
+}
 impl TryFrom<PaletteResult<CellType>> for GroundCell {
     type Error = ();
     fn try_from(PaletteResult(cell_type, colour, direction): PaletteResult<CellType>) -> Result<Self, ()> {
@@ -180,7 +278,6 @@ impl TryFrom<PaletteResult<CellType>> for GroundCell {
         }
     }
 }
-
 impl GroundCell {
     pub fn rotate_right(self) -> Self {
         match self {
@@ -210,12 +307,6 @@ impl GroundCell {
             GroundCell::ArrowBlock(direction) => GroundCell::ArrowBlock(direction.decrement()),
             GroundCell::RotateLeft => GroundCell::RotateRight,
             GroundCell::RotateRight => GroundCell::RotateLeft,
-        }
-    }
-    pub fn is_solid_to_cows(self) -> bool {
-        match self {
-            GroundCell::Fence(_) | GroundCell::Wall(_) => true,
-            _ => false,
         }
     }
 }

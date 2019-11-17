@@ -39,8 +39,8 @@ impl Default for Direction {
         Direction::Up
     }
 }
-impl Into<u8> for Direction {
-    fn into(self) -> u8 {
-        self as u8
+impl From<Direction> for u8 {
+    fn from(direction: Direction) -> Self {
+        direction as u8
     }
 }

@@ -32,6 +32,12 @@ impl Point<i32> {
             Direction::Left => self.0 -= 1,
         }
     }
+    pub fn is_inside(&self, dimensions: Point<i32>) -> bool {
+        self.x() >= 0 
+            && self.x() < dimensions.x()
+            && self.y() >= 0
+            && self.y() < dimensions.y()
+    }
 }
 impl<Rhs, T> std::ops::Mul<Point<Rhs>> for Point<T>
 where

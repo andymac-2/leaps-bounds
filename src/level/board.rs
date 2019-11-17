@@ -1,22 +1,40 @@
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
 use im_rc::OrdMap;
 use serde::{Deserialize, Serialize};
 
-use super::cell::{Cell, CellPalette, CellType, GroundCell, OverlayCell};
+use super::cell::{Cell, PaletteResult, CellType, GroundCell, OverlayCell};
 use crate::direction::Direction;
 use crate::js_ffi::draw_layer;
 use crate::{Context2D, Image, Point, SpriteSheet};
+
+pub fn get_grid_index(point: Point<i32>) -> Point<i32> {
+    let x_index = point.x() / (SpriteSheet::STANDARD_WIDTH as i32);
+    let y_index = point.y() / (SpriteSheet::STANDARD_HEIGHT as i32);
+    Point(x_index, y_index)
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelLayer<T: Clone> {
     layer: OrdMap<Point<i32>, T>,
     default: T,
 }
+impl<T> Default for LevelLayer<T>
+where
+    T: Clone + PartialEq + Cell + Default,
+{
+    fn default () -> Self {
+        LevelLayer {
+            layer: OrdMap::new(),
+            default: T::default(),
+        }
+    }
+}
 impl<T> LevelLayer<T>
 where
     T: Clone + PartialEq + Cell,
 {
+    const CELL_SIZE: Point<i32> = Point(SpriteSheet::STANDARD_WIDTH, SpriteSheet::STANDARD_HEIGHT);
     pub fn new(default: T) -> Self {
         LevelLayer {
             layer: OrdMap::new(),
@@ -75,20 +93,36 @@ where
         top_left: Point<i32>,
         dimensions: Point<i32>,
     ) {
-        let cell_size = Point(SpriteSheet::STANDARD_WIDTH, SpriteSheet::STANDARD_HEIGHT);
-        let mut layer = Layer::new(top_left, dimensions, cell_size, cell_size);
+        let mut layer = Layer::new(top_left, dimensions, Self::CELL_SIZE, Self::CELL_SIZE);
 
         assert!(dimensions.x() >= 0);
         assert!(dimensions.y() >= 0);
 
-        for y_index in 0..dimensions.y() {
-            for x_index in 0..dimensions.x() {
-                self.get_cell(&Point(x_index, y_index))
-                    .draw_into_layer(&mut layer);
+        for (point, cell) in self.layer.iter() {
+            if !point.is_inside(dimensions) {
+                continue;
             }
+
+            while layer.cursor() < *point {
+                self.default.draw_into_layer(&mut layer);
+            }
+
+            cell.draw_into_layer(&mut layer);
+        }
+
+        while !layer.is_full() {
+            self.default.draw_into_layer(&mut layer);
         }
 
         layer.draw(context, blocks.get_image());
+    }
+}
+impl<T> super::Pasture<T> for LevelLayer<T> 
+where
+    T: Clone + PartialEq + Cell,
+{
+    fn get_pasture_cell(&self, point: Point<i32>) -> &T {
+        self.get_cell(&point)
     }
 }
 
@@ -121,15 +155,13 @@ impl Board {
         self.ground.map_cell(point, func)
     }
 
-    pub fn left_click(&mut self, point: Point<i32>, palette: CellPalette<CellType>) {
-        let x_index = point.x() / (SpriteSheet::STANDARD_WIDTH as i32);
-        let y_index = point.y() / (SpriteSheet::STANDARD_HEIGHT as i32);
-        let index = Point(x_index, y_index);
+    pub fn set_cell_at_point(&mut self, point: Point<i32>, cell_type: PaletteResult<CellType>) {
+        let index = get_grid_index(point);
 
-        if let Ok(cell) = GroundCell::try_from(palette.value()) {
+        if let Ok(cell) = GroundCell::try_from(cell_type) {
             self.ground.set_cell(index, cell)
         }
-        if let Ok(cell) = OverlayCell::try_from(palette.value()) {
+        if let Ok(cell) = OverlayCell::try_from(cell_type) {
             self.overlay.set_cell(index, cell)
         }
     }
@@ -152,6 +184,11 @@ impl Board {
         dimensions: Point<i32>,
     ) {
         self.overlay.draw(context, blocks, top_left, dimensions);
+    }
+}
+impl super::Pasture<GroundCell> for Board {
+    fn get_pasture_cell(&self, point: Point<i32>) -> &GroundCell {
+        self.get_ground_cell(&point)
     }
 }
 
@@ -186,9 +223,25 @@ impl Layer {
     }
 
     pub fn add_cell(&mut self, sprite_offset: Option<Point<u8>>) {
+        assert!(self.buffer.len() % 2 == 0);
+        assert!(self.buffer.len() < (self.grid_dimensions.x() * self.grid_dimensions.y() * 2) as usize);
+
         let Point(x, y) = sprite_offset.unwrap_or(Point(Layer::EMPTY, Layer::EMPTY));
         self.buffer.push(x);
         self.buffer.push(y);
+    }
+    pub fn cursor(&self) -> Point<i32> {
+        assert!(self.buffer.len() % 2 == 0);
+        assert!(self.buffer.len() <= (self.grid_dimensions.x() * self.grid_dimensions.y() * 2) as usize);
+        let length: i32 = (self.buffer.len() / 2).try_into().unwrap();
+
+        let x = length % self.grid_dimensions.x();
+        let y = (length - x) / self.grid_dimensions.x();
+        Point(x, y)
+    }
+    pub fn is_full(&self) -> bool {
+        assert!(self.buffer.len() <= (self.grid_dimensions.x() * self.grid_dimensions.y() * 2) as usize);
+        self.buffer.len() == (self.grid_dimensions.x() * self.grid_dimensions.y() * 2).try_into().unwrap()
     }
     pub fn draw(&self, context: &Context2D, image: &Image) {
         assert!(

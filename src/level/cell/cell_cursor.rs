@@ -1,14 +1,15 @@
-use std::convert::{TryFrom, TryInto};
+use std::convert::{TryInto};
 
-use crate::console_log;
-use crate::component::{Component, Translation, Rect};
+use wasm_bindgen::JsValue;
+
+use crate::component::{Component, Translation, Rect, combine_dimensions};
 use crate::point::Point;
 use crate::direction::Direction;
-use crate::util::with_saved_context;
 use crate::{Assets, Context2D, SpriteSheet};
 
-use super::{Cell, CellType, Colour, GroundCell, OverlayCell};
+use super::{CellType, Colour, OverworldCellType};
 
+#[derive(Debug, Clone, Copy)]
 pub struct PaletteResult<T>(pub T, pub Colour, pub Direction);
 
 #[derive(Debug, Clone)]
@@ -44,12 +45,20 @@ impl <T: Clone> CellPalette<T> {
 impl<T> Component for CellPalette<T> {
     type Args = ();
     fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
+        let fill_style = JsValue::from_str("rgba(127, 127, 127, 0.5)");
+        let rect = self.bounding_rect();
+        context.set_fill_style(&fill_style);
+        context.fill_rect(
+            rect.top_left.x().into(), 
+            rect.top_left.y().into(), 
+            rect.dimensions.x().into(), 
+            rect.dimensions.y().into());
+
         self.control.draw(context, assets, ());
         self.palette.draw(context, assets, (self.control.colour, self.control.direction));
     }
     fn bounding_rect(&self) -> Rect {
-        self.control
-            .combine_dimensions(&self.palette)
+        combine_dimensions(&self.control, &self.palette)
             .expand(Point(Self::LEFT_MARGIN, Self::TOP_MARGIN))
     }
     fn click(&mut self, point: Point<i32>) -> bool {
@@ -216,6 +225,24 @@ impl From<CellType> for CellCursorEntry<CellType> {
         }
     }
 }
+impl From<OverworldCellType> for CellCursorEntry<OverworldCellType> {
+    fn from (cell_type: OverworldCellType) -> Self {
+        match cell_type {
+            OverworldCellType::Empty => Self::new(cell_type, Point(8, 0), false, false),
+            OverworldCellType::Fence => Self::new(cell_type, Point(0, 14), false, false),
+            OverworldCellType::Wall => Self::new(cell_type, Point(0, 15), false, false),
+            OverworldCellType::BlockedPath => Self::new(cell_type, Point(0, 8), false, false),
+            OverworldCellType::ClearPath => Self::new(cell_type, Point(0, 9), false, false),
+            OverworldCellType::Level0 => Self::new(cell_type, Point(0, 16), true, false),
+            OverworldCellType::Level1 => Self::new(cell_type, Point(0, 17), true, false),
+            OverworldCellType::Level2 => Self::new(cell_type, Point(0, 18), true, false),
+            OverworldCellType::Level3 => Self::new(cell_type, Point(0, 19), true, false),
+            OverworldCellType::Level4 => Self::new(cell_type, Point(4, 16), true, false),
+            OverworldCellType::Level5 => Self::new(cell_type, Point(4, 17), true, false),
+            OverworldCellType::Level6 => Self::new(cell_type, Point(4, 18), true, false),
+        }
+    }
+}
 impl<T> CellCursorEntry<T> {
     fn new(value: T, graphic: Point<u8>, has_colour: bool, has_direction: bool) -> Self {
         CellCursorEntry {
@@ -266,56 +293,5 @@ impl Component for CellGraphic {
     fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
         let point = Point(self.offset.x().into(), self.offset.y().into());
         assets.blocks.draw(context, self.graphic, point);
-    }
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct CellCursor(pub CellType, pub Colour, pub Direction);
-impl From<GroundCell> for CellCursor {
-    fn from(cell: GroundCell) -> Self {
-        match cell {
-            GroundCell::Empty => CellCursor(CellType::Empty, Colour::Red, Direction::Up),
-            GroundCell::ColouredBlock(colour) => {
-                CellCursor(CellType::ColouredBlock, colour, Direction::Up)
-            }
-            GroundCell::Arrow(direction) => CellCursor(CellType::Arrow, Colour::Red, direction),
-            GroundCell::ColouredArrow(colour, direction) => {
-                CellCursor(CellType::ColouredArrow, colour, direction)
-            }
-            GroundCell::ArrowBlock(direction) => {
-                CellCursor(CellType::ArrowBlock, Colour::Red, direction)
-            }
-            GroundCell::RotateRight => {
-                CellCursor(CellType::RotateRight, Colour::Red, Direction::Up)
-            }
-            GroundCell::RotateLeft => CellCursor(CellType::RotateLeft, Colour::Red, Direction::Up),
-            GroundCell::Fence(_) => CellCursor(CellType::Fence, Colour::Red, Direction::Up),
-            GroundCell::Wall(_) => CellCursor(CellType::Wall, Colour::Red, Direction::Up),
-        }
-    }
-}
-impl From<OverlayCell> for CellCursor {
-    fn from(cell: OverlayCell) -> Self {
-        match cell {
-            OverlayCell::Empty => CellCursor(CellType::Empty, Colour::Red, Direction::Up),
-            OverlayCell::Success(_) => CellCursor(CellType::Overlay, Colour::Green, Direction::Up),
-            OverlayCell::Failure(_) => CellCursor(CellType::Overlay, Colour::Red, Direction::Up),
-            OverlayCell::Input(_) => CellCursor(CellType::Overlay, Colour::Orange, Direction::Up),
-            OverlayCell::Output(_) => CellCursor(CellType::Overlay, Colour::Blue, Direction::Up),
-        }
-    }
-}
-impl CellCursor {
-    pub fn new() -> Self {
-        CellCursor(CellType::Empty, Colour::Red, Direction::Up)
-    }
-    pub fn increment_type(&mut self) {
-        self.0 = self.0.increment();
-    }
-    pub fn increment_colour(&mut self) {
-        self.1 = self.1.increment();
-    }
-    pub fn increment_direction(&mut self) {
-        self.2 = self.2.increment();
     }
 }

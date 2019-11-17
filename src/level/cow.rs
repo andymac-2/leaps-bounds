@@ -5,8 +5,8 @@ use crate::point::interpolate_2d;
 use crate::{console_log, Context2D, Point, SpriteSheet};
 
 use super::board::Board;
-use super::cell::{Colour, GroundCell};
-use super::{LevelState, SuccessState};
+use super::cell::{PastureCell, Colour, GroundCell};
+use super::{LevelState, SuccessState, KeyboardCommand};
 
 #[derive(Clone, Debug, Copy, Serialize, Deserialize)]
 pub enum CowSprite {
@@ -22,6 +22,14 @@ pub enum Command {
     PlaceBlock(Colour),
     RotateRight,
     RotateLeft,
+}
+impl From<KeyboardCommand> for Command {
+    fn from(command: KeyboardCommand) -> Self {
+        match command {
+            KeyboardCommand::Direction(direction) => Command::Walk(direction),
+            KeyboardCommand::Space => Command::Halt,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Copy)]
@@ -223,7 +231,7 @@ impl Cows {
 
         context.restore();
 
-        // drow cows
+        // draw cows
         self.cows.iter().enumerate().for_each(|(index, cow)| {
             let old_position = old_cows
                 .cows
@@ -247,7 +255,16 @@ pub struct Cow {
     children: Vec<CowIndex>,
     sprite: CowSprite,
 }
-
+impl Default for Cow {
+    fn default() -> Self {
+        Cow {
+            position: Point(16, 8),
+            direction: Direction::Right,
+            children: vec![],
+            sprite: CowSprite::White,
+        }
+    }
+}
 impl Cow {
     pub fn new(position: Point<i32>, direction: Direction, children: Vec<CowIndex>, sprite: CowSprite) -> Self {
         Cow {
@@ -257,30 +274,41 @@ impl Cow {
             sprite,
         }
     }
+    pub fn get_position(&self) -> Point<i32> {
+        self.position
+    }
 
     fn get_cell(&self, board: &Board) -> GroundCell {
         *board.get_ground_cell(&self.position)
     }
 
     // walk until you hit a wall.
-    fn walk_stop(&mut self, board: &Board, direction: Direction) {
+    pub fn walk_stop<P, C>(&mut self, board: &P, direction: Direction) 
+    where
+        P: super::Pasture<C>,
+        C: PastureCell,
+    {
         self.direction = direction;
 
         let mut forwards = self.position;
         forwards.increment_2d(direction);
 
-        if !board.get_ground_cell(&forwards).is_solid_to_cows() {
+        if !board.get_pasture_cell(forwards).is_solid_to_cows() {
             self.position.increment_2d(direction);
             return;
         }
     }
 
     // when you hit a wall, turn around and bounce the other way.
-    fn walk_bounce(&mut self, board: &Board) {
+    fn walk_bounce<P, C>(&mut self, board: &P) 
+    where
+        P: super::Pasture<C>,
+        C: PastureCell,
+    {
         let mut forwards = self.position;
         forwards.increment_2d(self.direction);
 
-        if !board.get_ground_cell(&forwards).is_solid_to_cows() {
+        if !board.get_pasture_cell(forwards).is_solid_to_cows() {
             self.position.increment_2d(self.direction);
             return;
         }
@@ -291,7 +319,7 @@ impl Cow {
         let mut backwards = self.position;
         backwards.increment_2d(opposite_dir);
 
-        if !board.get_ground_cell(&backwards).is_solid_to_cows() {
+        if !board.get_pasture_cell(backwards).is_solid_to_cows() {
             self.position.increment_2d(opposite_dir);
         }
     }

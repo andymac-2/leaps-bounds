@@ -23,8 +23,8 @@ impl Default for Colour {
         Colour::Red
     }
 }
-impl Into<u8> for Colour {
-    fn into(self) -> u8 {
-        self as u8
+impl From<Colour> for u8 {
+    fn from(colour: Colour) -> Self {
+        colour as u8
     }
 }

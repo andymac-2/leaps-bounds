@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 
 mod component;
+mod scene;
 mod direction;
 mod js_ffi;
 mod level;
@@ -10,9 +11,9 @@ mod state_stack;
 mod util;
 
 use js_ffi::KeyboardState;
-use level::Level;
 use point::Point;
 use sprite_sheet::SpriteSheet;
+use scene::{Scene, Scenes};
 use component::Component;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
@@ -29,6 +30,10 @@ type Image = web_sys::HtmlImageElement;
 #[macro_export]
 macro_rules! console_log {
     ($($t:tt)*) => (crate::js_ffi::log(&format_args!($($t)*).to_string()))
+}
+#[macro_export]
+macro_rules! here {
+    () => (crate::console_log!("Arrived at {} line {}.", file!(), line!()))
 }
 
 #[wasm_bindgen]
@@ -48,7 +53,7 @@ impl Assets {
 
 #[wasm_bindgen]
 pub struct LeapsAndBounds {
-    level: Level,
+    scenes: Scenes,
     keyboard_state: KeyboardState,
 }
 impl Default for LeapsAndBounds {
@@ -65,20 +70,20 @@ impl LeapsAndBounds {
         console_error_panic_hook::set_once();
 
         LeapsAndBounds {
-            level: Level::new(),
+            scenes: Scenes::new(),
             keyboard_state: KeyboardState::new(),
         }
     }
     pub fn step(&mut self, dt: f64) {
-        self.level.step(dt, &self.keyboard_state);
+        self.scenes.step(dt, &self.keyboard_state);
         self.keyboard_state.tick();
     }
     pub fn draw(&self, context: &Context2D, assets: &Assets) {
         context.save();
-        self.level.draw(context, assets, ());
+        self.scenes.draw(context, assets, ());
         context.restore();
     }
     pub fn left_click(&mut self, x: i32, y: i32) {
-        self.level.click(Point(x, y));
+        self.scenes.click(Point(x, y));
     }
 }

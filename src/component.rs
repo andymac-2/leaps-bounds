@@ -19,9 +19,13 @@ impl Rect {
 
 pub trait Component {
     type Args;
+
+    fn bounding_rect (&self) -> Rect;
+    fn draw (&self, context: &Context2D, assets: &Assets, args: Self::Args);
+
     // performs a click event on a given component. returns true if the event
     // was handled.
-    fn click (&mut self, point: Point<i32>) -> bool {
+    fn click (&mut self, _point: Point<i32>) -> bool {
         false
     }
     /// Default behaviour assumes an AABB
@@ -40,8 +44,6 @@ pub trait Component {
     fn dimensions (&self) -> Point<i32> {
         self.bounding_rect().dimensions
     }
-    fn bounding_rect (&self) -> Rect;
-    fn draw (&self, context: &Context2D, assets: &Assets, args: Self::Args);
     fn draw_bbox(&self, context: &Context2D, assets: &Assets, args: Self::Args) {
         self.draw(context, assets, args);
         let dimensions = self.dimensions();
@@ -49,23 +51,35 @@ pub trait Component {
         context.rect(top_left.x().into(), top_left.y().into(), dimensions.x().into(), dimensions.y().into());
         context.stroke();
     }
-    fn combine_dimensions<C: Component>(&self, other: &C) -> Rect {
-        let self_tl = self.top_left();
-        let other_tl = other.top_left();
+    fn fill_bg(&self, context: &Context2D, colour: &str) {
+        let rect = self.bounding_rect();
 
-        let self_br = self_tl + self.dimensions();
-        let other_br = other_tl + other.dimensions();
+        context.set_fill_style(&wasm_bindgen::JsValue::from_str(colour));
+        context.fill_rect(
+            rect.top_left.x().into(), 
+            rect.top_left.y().into(), 
+            rect.dimensions.x().into(),
+            rect.dimensions.y().into()
+        );
+    }
+}
 
-        let tl_x = self_tl.x().min(other_tl.x());
-        let tl_y = self_tl.y().min(other_tl.y());
+pub fn combine_dimensions<A: Component, B: Component>(one: &A, other: &B) -> Rect {
+    let self_tl = one.top_left();
+    let other_tl = other.top_left();
 
-        let br_x = self_br.x().max(other_br.x());
-        let br_y = self_br.y().max(other_br.y());
+    let self_br = self_tl + one.dimensions();
+    let other_br = other_tl + other.dimensions();
 
-        Rect {
-            top_left: Point(tl_x, tl_y), 
-            dimensions: Point(br_x - tl_x, br_y - tl_y),
-        }
+    let tl_x = self_tl.x().min(other_tl.x());
+    let tl_y = self_tl.y().min(other_tl.y());
+
+    let br_x = self_br.x().max(other_br.x());
+    let br_y = self_br.y().max(other_br.y());
+
+    Rect {
+        top_left: Point(tl_x, tl_y), 
+        dimensions: Point(br_x - tl_x, br_y - tl_y),
     }
 }
 
