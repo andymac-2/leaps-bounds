@@ -3,7 +3,7 @@ use std::convert::{TryFrom, TryInto};
 use im_rc::OrdMap;
 use serde::{Deserialize, Serialize};
 
-use super::cell::{Cell, CellType, GroundCell, OverlayCell, PaletteResult, Colour};
+use super::cell::{Cell, CellType, Colour, GroundCell, OverlayCell, PaletteResult};
 use super::NotEnoughInputSpace;
 use crate::direction::Direction;
 use crate::js_ffi::draw_layer;
@@ -123,38 +123,44 @@ where
 }
 impl LevelLayer<OverlayCell> {
     pub fn get_input_coordinates(&self) -> Vec<Point<i32>> {
-        self.layer.iter().filter_map(|(point, overlay_cell)| {
-            if let OverlayCell::Input(_) = overlay_cell {
-                Some(*point)
-            }
-            else {
-                None
-            }
-        }).collect()
+        self.layer
+            .iter()
+            .filter_map(|(point, overlay_cell)| {
+                if let OverlayCell::Input(_) = overlay_cell {
+                    Some(*point)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 impl LevelLayer<OverlayCell> {
     pub fn get_output_coordinates(&self) -> Vec<Point<i32>> {
-        self.layer.iter().filter_map(|(point, overlay_cell)| {
-            if let OverlayCell::Output(_) = overlay_cell {
-                Some(*point)
-            }
-            else {
-                None
-            }
-        }).collect()
+        self.layer
+            .iter()
+            .filter_map(|(point, overlay_cell)| {
+                if let OverlayCell::Output(_) = overlay_cell {
+                    Some(*point)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 impl LevelLayer<GroundCell> {
     pub fn get_coloured_blocks(&self, coordinates: &Vec<Point<i32>>) -> Vec<Colour> {
-        coordinates.iter().filter_map(|point| {
-            if let GroundCell::ColouredBlock(colour) = self.get_cell(point) {
-                Some(*colour)
-            }
-            else {
-                None
-            }
-        }).collect()
+        coordinates
+            .iter()
+            .filter_map(|point| {
+                if let GroundCell::ColouredBlock(colour) = self.get_cell(point) {
+                    Some(*colour)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
@@ -192,11 +198,10 @@ impl Board {
         for coordinate in input_coordinates.iter() {
             if let Some(colour) = input_iter.next() {
                 self.set_ground_cell(*coordinate, GroundCell::ColouredBlock(*colour));
-            }
-            else {
+            } else {
                 self.set_ground_cell(*coordinate, GroundCell::Empty);
             }
-        };
+        }
 
         Ok(())
     }

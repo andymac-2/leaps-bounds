@@ -14,7 +14,7 @@ mod util;
 use component::Component;
 use js_ffi::KeyboardState;
 use point::Point;
-use scene::{Scenes};
+use scene::Scenes;
 use sprite_sheet::SpriteSheet;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global

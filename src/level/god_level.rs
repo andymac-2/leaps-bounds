@@ -1,28 +1,187 @@
-use crate::component::{Translation, NextScene, Object};
+use std::convert::TryFrom;
+
+use crate::component::Rect;
+use crate::component::{NextScene, Object, Translation};
 use crate::point::Point;
-use crate::util::clamp;
-use crate::{component, Assets, Context2D, SpriteSheet, KeyboardState};
+use crate::util;
+use crate::{component, Assets, Context2D, KeyboardState, SpriteSheet};
 
-use super::cell::{Colour, CellPalette, CellType, CellGraphic, PaletteResult, cell_cursor};
+use super::cell::{cell_cursor, CellGraphic, CellPalette, CellType, Colour, PaletteResult};
 use super::cow_level::CowLevel;
-use super::{LevelState, SuccessState, NotEnoughInputSpace};
-
+use super::{LevelState, SuccessState};
 
 #[derive(Clone, Debug)]
 pub struct Test {
     input: Vec<Colour>,
-    output: TestResult,
+    output: TestTarget,
 }
 impl Test {
-    pub fn new(input: Vec<Colour>, output: TestResult) -> Test {
-        Test {input, output}
+    pub fn new(input: Vec<Colour>, output: TestTarget) -> Test {
+        Test { input, output }
     }
 }
 #[derive(Clone, Debug)]
-pub enum TestResult {
+pub enum TestTarget {
     Reject,
     Accept,
     AcceptWith(Vec<Colour>),
+}
+
+#[derive(Clone, Debug)]
+pub enum TestResult {
+    Reject,
+    AcceptWith(Vec<Colour>),
+    NotEnoughInputSpace,
+}
+
+#[derive(Clone, Debug)]
+pub struct MetaTestResult {
+    test: Test,
+    result: TestResult,
+}
+impl<'a> MetaTestResult {
+    fn new(test: Test, result: TestResult) -> Self {
+        MetaTestResult { test, result }
+    }
+    fn is_passed(&self) -> bool {
+        match (&self.test.output, &self.result) {
+            (TestTarget::Reject, TestResult::Reject) => true,
+            (TestTarget::Accept, TestResult::AcceptWith(_)) => true,
+            (TestTarget::AcceptWith(ideal), TestResult::AcceptWith(real)) => ideal == real,
+            (_, _) => false,
+        }
+    }
+    fn draw_colours(context: &Context2D, assets: &Assets, colours: &[Colour], offset: Point<f64>) {
+        if colours.is_empty() {
+            context.save();
+
+            context.set_font("10px KongText");
+            context.set_text_align("center");
+            let black = wasm_bindgen::JsValue::from_str("black");
+            context.set_fill_style(&black);
+            context.fill_text("<empty>", offset.x(), offset.y()).unwrap();
+
+            context.restore();
+            return;
+        }
+
+        let width: f64 = f64::from(SpriteSheet::STANDARD_WIDTH) * colours.len() as f64;
+        let left: f64 = offset.x() - width / 2.0;
+        
+        for (index, colour) in colours.iter().enumerate() {
+            let cursor: f64 = f64::from(SpriteSheet::STANDARD_WIDTH) * index as f64;
+            let x = left + cursor;
+            assets.blocks.draw(context, Point(*colour as u8, 0), Point(x, offset.y()));
+        }
+    }
+
+    const REPORT_BG: Rect = Rect::indexed(Point(1, 0), Rect::FOUR_BY_TWO);
+    const BOUNDING_RECT: Rect = CowLevel::BOUNDING_RECT;
+    const CENTRE: f64 =
+        (Self::BOUNDING_RECT.top_left.0 + (Self::BOUNDING_RECT.dimensions.0 / 2)) as f64;
+    const LEFT_COLUMN: f64 = Self::CENTRE * 0.5;
+    const RIGHT_COLUMN: f64 = Self::CENTRE * 1.5;
+
+    const TOP_MARGIN: f64 = 60.0;
+    const RESULT_TOP: f64 = 90.0;
+    const INPUT_TOP: f64 = 110.0;
+    const SUBHEADING_TOP: f64 = 150.0;
+}
+impl component::Component for MetaTestResult {
+    type DrawArgs = ();
+    fn bounding_rect(&self) -> Rect {
+        Self::BOUNDING_RECT
+    }
+    fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
+        assets
+            .misc
+            .draw_with_rect(context, &Self::REPORT_BG, &Self::BOUNDING_RECT);
+
+        util::with_saved_context(context, || {
+            context.set_font("25px KongText");
+            context.set_text_align("center");
+            let black = wasm_bindgen::JsValue::from_str("black");
+            let green = wasm_bindgen::JsValue::from_str("#47a624");
+            let red = wasm_bindgen::JsValue::from_str("#bb0015");
+            
+            context.set_fill_style(&black);
+            context
+                .fill_text("Report:", Self::CENTRE, Self::TOP_MARGIN)
+                .unwrap();
+
+            let (colour, text) = if self.is_passed() {
+                (&green, "Pass!")
+            }
+            else {
+                (&red, "Fail!")
+            };
+            context.set_fill_style(colour);
+            context
+                .fill_text(text, Self::CENTRE, Self::RESULT_TOP)
+                .unwrap();
+
+            context.set_font("15px KongText");
+            context.set_fill_style(&black);
+            context
+                .fill_text("Input:", Self::CENTRE, Self::INPUT_TOP)
+                .unwrap();
+            context
+                .fill_text("Expected:", Self::LEFT_COLUMN, Self::SUBHEADING_TOP)
+                .unwrap();
+            context
+                .fill_text("Found:", Self::RIGHT_COLUMN, Self::SUBHEADING_TOP)
+                .unwrap();
+            
+            Self::draw_colours(context, assets, &self.test.input, Point(Self::CENTRE, Self::INPUT_TOP + 3.0));
+
+            match &self.test.output{
+                TestTarget::Reject => {
+                    context.set_fill_style(&red);
+                    context
+                        .fill_text("Reject", Self::LEFT_COLUMN, Self::SUBHEADING_TOP + 20.0)
+                        .unwrap();
+                },
+                TestTarget::Accept => {
+                    context.set_fill_style(&green);
+                    context
+                        .fill_text("Accept", Self::LEFT_COLUMN, Self::SUBHEADING_TOP + 20.0)
+                        .unwrap();
+                },
+                TestTarget::AcceptWith(ideal) => {
+                    context.set_fill_style(&green);
+                    context
+                        .fill_text("Accept", Self::LEFT_COLUMN, Self::SUBHEADING_TOP + 20.0)
+                        .unwrap();
+                    Self::draw_colours(context, assets, ideal, Point(Self::LEFT_COLUMN, Self::SUBHEADING_TOP + 23.0));
+                },
+            }
+
+            match &self.result {
+                TestResult::Reject => {
+                    context.set_fill_style(&red);
+                    context
+                        .fill_text("Reject", Self::RIGHT_COLUMN, Self::SUBHEADING_TOP + 20.0)
+                        .unwrap();
+                },
+                TestResult::AcceptWith(result) => {
+                    context.set_fill_style(&green);
+                    context
+                        .fill_text("Accept", Self::RIGHT_COLUMN, Self::SUBHEADING_TOP + 20.0)
+                        .unwrap();
+                    Self::draw_colours(context, assets, result, Point(Self::RIGHT_COLUMN, Self::SUBHEADING_TOP + 23.0));
+                }
+                TestResult::NotEnoughInputSpace => {
+                    context.set_fill_style(&black);
+                    context
+                        .fill_text("Not enough", Self::RIGHT_COLUMN, Self::SUBHEADING_TOP + 20.0)
+                        .unwrap();
+                    context
+                        .fill_text("room.", Self::RIGHT_COLUMN, Self::SUBHEADING_TOP + 40.0)
+                        .unwrap();
+                }
+            }
+        });
+    }
 }
 
 pub struct GodLevel {
@@ -53,17 +212,12 @@ impl GodLevel {
         &self.tests[self.current_test]
     }
     fn next_test(&mut self) {
-        let mut state = self.initial_state.clone();
+        let state = self.initial_state.clone();
         let test = self.get_current_test().clone();
 
         self.running_state.stop();
+        self.running_state.start(state, test, self.speed);
 
-        if state.set_inputs(&test.input).is_err() {
-            crate::console_log!("not enough room");
-            return;
-        }
-
-        self.running_state.start(state, test.output, self.speed);
         self.current_test += 1;
     }
     fn control_button_press(&mut self, button: ControlButton) {
@@ -75,17 +229,21 @@ impl GodLevel {
                 }
                 self.current_test = 0;
                 self.next_test();
-            },
+            }
             ControlButton::Stop => {
                 self.current_test = 0;
                 self.running_state.stop()
-            },
+            }
             ControlButton::Pause => self.running_state.pause(),
         }
     }
 }
 impl component::Component for GodLevel {
     type DrawArgs = ();
+    fn called_into(&mut self, _object: Object) {
+        self.current_test = 0;
+        self.running_state.stop();
+    }
     fn bounding_rect(&self) -> component::Rect {
         CowLevel::BOUNDING_RECT
     }
@@ -94,7 +252,9 @@ impl component::Component for GodLevel {
             return false;
         }
         if self.control_panel.click(point) {
-            self.control_button_press(self.control_panel.last_press());
+            if let Some(button) = self.control_panel.last_press() {
+                self.control_button_press(button);
+            }
             return true;
         }
 
@@ -109,36 +269,29 @@ impl component::Component for GodLevel {
     fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
         self.fill_bg(context, super::BG_FILL);
 
-        if self.running_state.is_stopped() {
+        if self.running_state.is_drawable() {
             self.initial_state
                 .draw(context, assets, &self.initial_state, 0.0);
-        } 
-        else {
+        } else {
             self.running_state.draw(context, assets, ());
         }
 
-        self.control_panel.fill_bg(context, cell_cursor::BG_COLOUR);
-        self.control_panel.draw(context, assets, ());
-    }
-    fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene{
-        match self.running_state.step(dt, keyboard_state) {
-            NextScene::Continue => NextScene::Continue,
-            NextScene::Return(Object::Bool(success)) => {
-                if !success {
-                    //TODO make a failure screen.
-                    self.running_state = GodLevelStatus::Stopped;
-                    NextScene::Continue
-                }
-                else if self.is_success() {
-                    NextScene::Return(Object::Bool(true))
-                }
-                else {
-                    crate::here!();
-                    NextScene::Continue
-                }
-            },
-            _ => unreachable!(),
+        if !self.running_state.is_report() {
+            self.control_panel.fill_bg(context, cell_cursor::BG_COLOUR);
+            self.control_panel.draw(context, assets, ());
         }
+    }
+    fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene {
+        self.running_state.step(dt, keyboard_state);
+        if self.running_state.is_succeeded() {
+            if self.is_success() {
+                return NextScene::Return(Object::Bool(true));
+            } else {
+                self.next_test();
+                return NextScene::Continue;
+            }
+        }
+        NextScene::Continue
     }
 }
 
@@ -146,8 +299,10 @@ impl component::Component for GodLevel {
 #[derive(Clone, Debug)]
 enum GodLevelStatus {
     Stopped,
-    Paused(Box<GodLevelRunningState>),
-    Playing(Box<GodLevelRunningState>),
+    Paused(Test, GodLevelRunningState),
+    Playing(Test, GodLevelRunningState),
+    Report(MetaTestResult),
+    Succeeded,
 }
 impl GodLevelStatus {
     fn new() -> Self {
@@ -156,35 +311,59 @@ impl GodLevelStatus {
     fn stop(&mut self) {
         *self = Self::Stopped;
     }
-    fn start(&mut self, state: LevelState, target: TestResult, speed: f64) {
+    fn start(&mut self, mut state: LevelState, test: Test, speed: f64) {
         assert!(self.is_stopped());
-        *self = Self::Playing(Box::new(GodLevelRunningState::new(state, target, speed)));
+        if let Ok(()) = state.set_inputs(&test.input) {
+            *self = Self::Playing(test, GodLevelRunningState::new(state, speed));
+        } else {
+            let result = MetaTestResult::new(test, TestResult::NotEnoughInputSpace);
+            *self = Self::Report(result);
+        }
     }
-    fn pause (&mut self) {
+    fn pause(&mut self) {
         let status = std::mem::replace(self, Self::Stopped);
         *self = match status {
             Self::Stopped => Self::Stopped,
-            Self::Playing(state) => Self::Paused(state),
-            Self::Paused(state) => Self::Paused(state),
+            Self::Playing(test, state) => Self::Paused(test, state),
+            Self::Paused(test, state) => Self::Paused(test, state),
+            Self::Report(result) => Self::Report(result),
+            Self::Succeeded => Self::Succeeded,
         }
     }
-    fn play (&mut self) {
+    fn play(&mut self) {
         let status = std::mem::replace(self, Self::Stopped);
         *self = match status {
             Self::Stopped => panic!("Play used on stopped variant. Use start instead."),
-            Self::Playing(state) => Self::Playing(state),
-            Self::Paused(state) => Self::Playing(state),
+            Self::Playing(test, state) => Self::Playing(test, state),
+            Self::Paused(test, state) => Self::Playing(test, state),
+            Self::Report(result) => Self::Report(result),
+            Self::Succeeded => Self::Succeeded,
         }
     }
-    fn is_complete(&self) -> bool {
+    fn is_succeeded(&self) -> bool {
         match self {
-            Self::Stopped => false,
-            Self::Paused(state) | Self::Playing(state) => state.is_complete(),
+            Self::Succeeded => true,
+            _ => false,
         }
     }
     fn is_stopped(&self) -> bool {
         match self {
             Self::Stopped => true,
+            _ => false,
+        }
+    }
+    fn is_drawable(&self) -> bool {
+        match self {
+            Self::Stopped => false,
+            Self::Playing(_, _) => true,
+            Self::Paused(_, _) => true,
+            Self::Report(_) => true,
+            Self::Succeeded => false,
+        }
+    }
+    fn is_report(&self) -> bool {
+        match self {
+            Self::Report(_) => true,
             _ => false,
         }
     }
@@ -197,24 +376,42 @@ impl component::Component for GodLevelStatus {
     fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
         match self {
             Self::Stopped => {}
-            Self::Playing(state) | Self::Paused(state) => {
+            Self::Playing(_, state) | Self::Paused(_, state) => {
                 state.draw(context, assets, ());
             }
+            Self::Report(result) => {
+                result.draw(context, assets, ());
+            }
+            Self::Succeeded => {}
         }
     }
-    fn step(&mut self, dt: f64, _keyboard: &KeyboardState) -> NextScene {
-        match *self {
+    fn step(&mut self, dt: f64, keyboard: &KeyboardState) -> NextScene {
+        match self {
             Self::Stopped => NextScene::Continue,
-            Self::Paused(_) => NextScene::Continue,
-            Self::Playing(ref mut state) => {
+            Self::Paused(_, _) => NextScene::Continue,
+            Self::Playing(ref test, ref mut state) => {
                 state.step(dt);
-                if state.is_complete() {
-                    NextScene::Return(Object::Bool(state.test_passed()))
+                if !state.is_complete() {
+                    return NextScene::Continue;
                 }
-                else {
-                    NextScene::Continue
+
+                if let Some(result) = state.result() {
+                    let result = MetaTestResult::new(test.clone(), result);
+                    *self = Self::Report(result);
                 }
+                NextScene::Continue
             }
+            Self::Report(result) => {
+                if keyboard.is_pressed("Space") || keyboard.is_pressed("Enter") {
+                    if result.is_passed() {
+                        *self = Self::Succeeded;
+                    } else {
+                        *self = Self::Stopped;
+                    }
+                }
+                NextScene::Continue
+            }
+            Self::Succeeded => NextScene::Continue,
         }
     }
 }
@@ -223,29 +420,25 @@ impl component::Component for GodLevelStatus {
 struct GodLevelRunningState {
     current_state: LevelState,
     old_state: LevelState,
-    target: TestResult,
     animation_time: f64,
     speed: f64,
 }
 impl GodLevelRunningState {
-    fn new(initial_state: LevelState, target: TestResult, speed: f64) -> Self {
+    fn new(initial_state: LevelState, speed: f64) -> Self {
         GodLevelRunningState {
             current_state: initial_state.clone(),
             old_state: initial_state,
-            target,
             animation_time: speed,
             speed,
         }
     }
-    fn test_passed(&self) -> bool {
-        match (&self.target, self.current_state.success_state()) {
-            (TestResult::Reject, SuccessState::Failed) => true,
-            (TestResult::Accept, SuccessState::Succeeded) => true,
-            (TestResult::AcceptWith(colour_string), SuccessState::Succeeded) => {
-                let output = self.current_state.get_outputs();
-                &output == colour_string
-            },
-            (_, _) => false,
+    fn result(&self) -> Option<TestResult> {
+        match self.current_state.success_state() {
+            SuccessState::Failed => Some(TestResult::Reject),
+            SuccessState::Succeeded => {
+                Some(TestResult::AcceptWith(self.current_state.get_outputs()))
+            }
+            SuccessState::Running => None,
         }
     }
 
@@ -271,7 +464,7 @@ impl component::Component for GodLevelRunningState {
         CowLevel::BOUNDING_RECT
     }
     fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
-        let anim_progress = clamp(self.animation_time / self.speed, 0.0, 1.0);
+        let anim_progress = util::clamp(self.animation_time / self.speed, 0.0, 1.0);
         self.current_state
             .draw(context, assets, &self.old_state, anim_progress);
     }
@@ -286,24 +479,18 @@ pub enum ControlButton {
 #[derive(Clone, Debug)]
 struct ControlPanel {
     cell_palette: Translation<CellPalette<CellType>>,
-    last_press: ControlButton,
+    last_press: Option<ControlButton>,
 }
 impl ControlPanel {
     const HALF_HEIGHT: i32 = SpriteSheet::STANDARD_HEIGHT / 2;
     const HALF_WIDTH: i32 = SpriteSheet::STANDARD_WIDTH / 2;
     const PALETTE_OFFSET: Point<i32> = Point(0, Self::HALF_HEIGHT * 3);
-    const PLAY_BUTTON: CellGraphic = CellGraphic::new(
-        Point(Self::HALF_WIDTH, Self::HALF_HEIGHT),
-        Point(15, 0),
-    );
-    const PAUSE_BUTTON: CellGraphic = CellGraphic::new(
-        Point(Self::HALF_WIDTH * 3, Self::HALF_HEIGHT),
-        Point(14, 0),
-    );
-    const STOP_BUTTON: CellGraphic = CellGraphic::new(
-        Point(Self::HALF_WIDTH * 7, Self::HALF_HEIGHT),
-        Point(13, 0),
-    );
+    const PLAY_BUTTON: CellGraphic =
+        CellGraphic::new(Point(Self::HALF_WIDTH, Self::HALF_HEIGHT), Point(15, 0));
+    const PAUSE_BUTTON: CellGraphic =
+        CellGraphic::new(Point(Self::HALF_WIDTH * 3, Self::HALF_HEIGHT), Point(14, 0));
+    const STOP_BUTTON: CellGraphic =
+        CellGraphic::new(Point(Self::HALF_WIDTH * 7, Self::HALF_HEIGHT), Point(13, 0));
     const CONTROL_DIMENSIONS: component::Rect = component::Rect {
         top_left: Point(0, 0),
         dimensions: Point(Self::HALF_WIDTH * 10, Self::HALF_HEIGHT * 3),
@@ -312,13 +499,13 @@ impl ControlPanel {
     fn new(cell_palette: CellPalette<CellType>) -> Self {
         ControlPanel {
             cell_palette: Translation::new(Self::PALETTE_OFFSET, cell_palette),
-            last_press: ControlButton::Pause,
+            last_press: None,
         }
     }
     fn cell_palette_value(&self) -> PaletteResult<CellType> {
         self.cell_palette.value()
     }
-    fn last_press(&self) -> ControlButton {
+    fn last_press(&self) -> Option<ControlButton> {
         self.last_press
     }
 }
@@ -332,18 +519,19 @@ impl component::Component for ControlPanel {
             return false;
         }
         if Self::PLAY_BUTTON.in_boundary(point) {
-            self.last_press = ControlButton::Play;
+            self.last_press = Some(ControlButton::Play);
             return true;
         }
         if Self::PAUSE_BUTTON.in_boundary(point) {
-            self.last_press = ControlButton::Pause;
+            self.last_press = Some(ControlButton::Pause);
             return true;
         }
         if Self::STOP_BUTTON.in_boundary(point) {
-            self.last_press = ControlButton::Stop;
+            self.last_press = Some(ControlButton::Stop);
             return true;
         }
-        
+
+        self.last_press = None;
         self.cell_palette.click(point)
     }
     fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {

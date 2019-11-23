@@ -5,7 +5,7 @@ use crate::direction::Direction;
 use crate::point::Point;
 use crate::{Assets, Context2D, SpriteSheet};
 
-use super::{CellType, Colour, OverworldCellType, CellGraphic};
+use super::{CellGraphic, CellType, Colour, OverworldCellType};
 
 pub const BG_COLOUR: &str = "rgba(127, 127, 127, 0.5)";
 
@@ -72,14 +72,10 @@ impl PaletteControl {
     const WIDTH: i32 = SpriteSheet::STANDARD_WIDTH * 4;
 
     const ROTATE_LEFT_GRAPHIC: CellGraphic = CellGraphic::new(Point(0, 0), Point(6, 0));
-    const ROTATE_COLOUR_GRAPHIC: CellGraphic = CellGraphic::new(
-        Point(SpriteSheet::STANDARD_WIDTH * 3 / 2, 0),
-        Point(4, 0),
-    );
-    const ROTATE_RIGHT_GRAPHIC: CellGraphic = CellGraphic::new(
-        Point(SpriteSheet::STANDARD_WIDTH * 3, 0),
-        Point(5, 0),
-    );
+    const ROTATE_COLOUR_GRAPHIC: CellGraphic =
+        CellGraphic::new(Point(SpriteSheet::STANDARD_WIDTH * 3 / 2, 0), Point(4, 0));
+    const ROTATE_RIGHT_GRAPHIC: CellGraphic =
+        CellGraphic::new(Point(SpriteSheet::STANDARD_WIDTH * 3, 0), Point(5, 0));
 
     fn new() -> Self {
         PaletteControl {

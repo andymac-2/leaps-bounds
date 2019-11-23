@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use crate::component::{NextScene, Object};
 use crate::direction::Direction;
 use crate::point::Point;
-use crate::component::{NextScene, Object};
 use crate::{component, util, Assets, Context2D, KeyboardState};
 
 use super::cell::{cell_cursor, OverworldCell, OverworldCellType, Surroundings};

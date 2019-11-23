@@ -1,4 +1,4 @@
-use crate::{SpriteSheet, component, Context2D, Assets};
+use crate::{component, Assets, Context2D, SpriteSheet};
 
 use crate::point::Point;
 
@@ -8,7 +8,8 @@ pub struct CellGraphic {
     graphic: Point<u8>,
 }
 impl CellGraphic {
-    pub const CELL_SIZE: Point<i32> = Point(SpriteSheet::STANDARD_WIDTH, SpriteSheet::STANDARD_HEIGHT);
+    pub const CELL_SIZE: Point<i32> =
+        Point(SpriteSheet::STANDARD_WIDTH, SpriteSheet::STANDARD_HEIGHT);
     pub const fn new(offset: Point<i32>, graphic: Point<u8>) -> Self {
         CellGraphic { offset, graphic }
     }

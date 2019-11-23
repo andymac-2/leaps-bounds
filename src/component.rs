@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::point::Point;
 use crate::util::with_saved_context;
-use crate::{Assets, Context2D, KeyboardState};
+use crate::{Assets, Context2D, KeyboardState, SpriteSheet};
 
 pub trait Component {
     type DrawArgs;
@@ -107,13 +107,13 @@ impl Rect {
     pub fn combine(&self, other: &Rect) -> Rect {
         let self_bot_right = self.top_left + self.dimensions;
         let other_bot_right = other.top_left + other.dimensions;
-    
+
         let tl_x = self.top_left.x().min(other.top_left.x());
         let tl_y = self.top_left.y().min(other.top_left.y());
-    
+
         let br_x = self_bot_right.x().max(other_bot_right.x());
         let br_y = self_bot_right.y().max(other_bot_right.y());
-    
+
         Rect {
             top_left: Point(tl_x, tl_y),
             dimensions: Point(br_x - tl_x, br_y - tl_y),
@@ -123,6 +123,28 @@ impl Rect {
         let top_left = self.top_left + translation;
         Rect::new(top_left, self.dimensions)
     }
+
+    pub const fn indexed(index: Point<u8>, dimensions: Point<i32>) -> Rect {
+        Rect::new(
+            Point(index.0 as i32 * dimensions.0, index.1 as i32 * dimensions.1),
+            dimensions,
+        )
+    }
+
+    pub const ONE_BY_ONE: Point<i32> =
+        Point(SpriteSheet::STANDARD_WIDTH, SpriteSheet::STANDARD_HEIGHT);
+    pub const TWO_BY_TWO: Point<i32> = Point(
+        SpriteSheet::STANDARD_WIDTH * 2,
+        SpriteSheet::STANDARD_HEIGHT * 2,
+    );
+    pub const FOUR_BY_FOUR: Point<i32> = Point(
+        SpriteSheet::STANDARD_WIDTH * 4,
+        SpriteSheet::STANDARD_HEIGHT * 4,
+    );
+    pub const FOUR_BY_TWO: Point<i32> = Point(
+        SpriteSheet::STANDARD_WIDTH * 4,
+        SpriteSheet::STANDARD_HEIGHT * 2,
+    );
 }
 
 pub fn combine_dimensions<A: Component, B: Component>(one: &A, other: &B) -> Rect {
@@ -161,7 +183,7 @@ impl<T: Component> Component for Translation<T> {
     fn bounding_rect(&self) -> Rect {
         self.component.bounding_rect().translate(self.translation)
     }
-    fn step (&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene {
+    fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene {
         self.component.step(dt, keyboard_state)
     }
     fn click(&mut self, point: Point<i32>) -> bool {

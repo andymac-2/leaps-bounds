@@ -1,9 +1,9 @@
 use crate::{Assets, Context2D};
 
-use crate::component::{Component, Rect, NextScene};
+use crate::component::{Component, NextScene, Rect};
 use crate::js_ffi::KeyboardState;
-use crate::level::{cow_level, overworld_level};
 use crate::level::god_level::Test;
+use crate::level::{cow_level, overworld_level};
 use crate::point::Point;
 
 use crate::tutorial;
@@ -57,14 +57,14 @@ impl Component for Scenes {
 impl Scenes {
     pub fn new() -> Self {
         use crate::level::cell::Colour::*;
-        use crate::level::god_level::TestResult::*;
+        use crate::level::god_level::TestTarget::*;
 
         Scenes {
             scenes: vec![
                 // 0
                 overworld_level(
                     include_str!("level_data/overworld_1.ron"),
-                    [5, 7, 3, 8, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50],
+                    [5, 7, 3, 8, 4, 9, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50],
                 ),
                 // 1
                 cow_level(include_str!("level_data/level_0_0.ron")),
@@ -72,6 +72,7 @@ impl Scenes {
                 cow_level(include_str!("level_data/level_0_1.ron")),
                 // 3
                 cow_level(include_str!("level_data/level_0_2.ron")),
+                //4
                 god_level(vec![
                     Test::new(vec![Red], Accept),
                     Test::new(vec![Blue], Reject),
@@ -84,6 +85,10 @@ impl Scenes {
                 tutorial(2, tutorial::LEVEL_0_1_TUTORIAL),
                 //8
                 cow_level(include_str!("level_data/level_0_3.ron")),
+                // test god level
+                god_level(vec![
+                    Test::new(vec![], Accept),
+                ]),
             ],
             current_scene: 6,
             scene_stack: Vec::new(),
@@ -95,7 +100,10 @@ fn cow_level(string: &'static str) -> Box<dyn Component<DrawArgs = ()>> {
     Box::new(cow_level::CowLevel::from_str(string))
 }
 
-fn overworld_level(string: &'static str, connections: [usize; 16]) -> Box<dyn Component<DrawArgs = ()>> {
+fn overworld_level(
+    string: &'static str,
+    connections: [usize; 16],
+) -> Box<dyn Component<DrawArgs = ()>> {
     Box::new(overworld_level::OverworldLevel::from_data(
         string,
         connections,
@@ -106,6 +114,9 @@ fn god_level(tests: Vec<Test>) -> Box<dyn Component<DrawArgs = ()>> {
     Box::new(crate::level::god_level::GodLevel::new(tests))
 }
 
-fn tutorial(destination: usize, screens: &'static [tutorial::Screen]) -> Box<dyn Component<DrawArgs = ()>> {
+fn tutorial(
+    destination: usize,
+    screens: &'static [tutorial::Screen],
+) -> Box<dyn Component<DrawArgs = ()>> {
     Box::new(tutorial::Tutorial::new(destination, screens))
 }

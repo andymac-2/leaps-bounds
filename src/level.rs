@@ -21,6 +21,7 @@ use cow_level::CowLevel;
 // green.
 const BG_FILL: &str = "#669238";
 
+#[derive(Clone, Debug)]
 struct NotEnoughInputSpace;
 
 #[derive(Debug, Clone, Copy)]
@@ -118,9 +119,8 @@ impl LevelState {
             cows: Cows::new(
                 0,
                 vec![
-                    (Point(3, 3), Direction::Right, CowSprite::Grey, vec![]),
-                    (Point(10, 10), Direction::Right, CowSprite::White, vec![2]),
-                    (Point(10, 5), Direction::Right, CowSprite::White, vec![]),
+                    (Point(24, 4), Direction::Right, CowSprite::Brown, vec![1]),
+                    (Point(8, 12), Direction::Right, CowSprite::White, vec![]),
                 ],
             ),
             animation_frame: LevelState::INITIAL_ANIMATION_FRAME,

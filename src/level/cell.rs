@@ -8,16 +8,16 @@ use super::board::Layer;
 use super::SuccessState;
 
 pub mod cell_cursor;
-mod cell_type;
 mod cell_graphic;
+mod cell_type;
 pub mod colour;
 mod surroundings;
 
 pub use cell_cursor::{CellCursorEntry, CellPalette, PaletteResult};
+pub use cell_graphic::CellGraphic;
 pub use cell_type::CellType;
 pub use colour::Colour;
 pub use surroundings::Surroundings;
-pub use cell_graphic::CellGraphic;
 
 pub trait Cell: Sized {
     /// If both cells are equal, set them to show the correct graphics.

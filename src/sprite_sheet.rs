@@ -4,7 +4,6 @@ use crate::component::Rect;
 use crate::point::Point;
 use crate::{Context2D, Image};
 
-
 #[derive(Debug, Clone)]
 pub struct SpriteSheet {
     image: Image,
@@ -68,7 +67,13 @@ impl SpriteSheet {
             )
             .unwrap();
     }
-    pub fn draw_with_source_height(&self, context: &Context2D, source: &Rect, dest_centre: Point<i32>, dest_height: i32) {
+    pub fn draw_with_source_height(
+        &self,
+        context: &Context2D,
+        source: &Rect,
+        dest_centre: Point<i32>,
+        dest_height: i32,
+    ) {
         let dest_width = source.dimensions.x() * dest_height / source.dimensions.y();
         let dest_left = dest_centre.x() - (dest_width / 2);
         let dest_top = dest_centre.y() - (dest_height / 2);

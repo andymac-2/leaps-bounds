@@ -1,4 +1,4 @@
-use crate::component::{Object, NextScene};
+use crate::component::{NextScene, Object};
 use crate::point::Point;
 use crate::{component, js_ffi, util, Assets, Context2D, SpriteSheet};
 
@@ -75,12 +75,9 @@ impl component::Component for CowLevel {
 
         self.fill_bg(context, super::BG_FILL);
 
-        self.states.current_state().draw(
-            context,
-            assets,
-            self.states.last_state(),
-            anim_progress,
-        );
+        self.states
+            .current_state()
+            .draw(context, assets, self.states.last_state(), anim_progress);
 
         self.palette.fill_bg(context, cell_cursor::BG_COLOUR);
         self.palette.draw(context, assets, ())

@@ -1,6 +1,5 @@
 use crate::component::{NextScene, Object, Rect};
 use crate::point::Point;
-use crate::sprite_sheet::SpriteSheet;
 use crate::{component, Assets, Context2D, KeyboardState};
 
 #[derive(Clone, Debug)]
@@ -166,41 +165,20 @@ impl Screen {
     }
 }
 
-const fn indexed_rect(index: Point<u8>, dimensions: Point<i32>) -> Rect {
-    Rect::new(
-        Point(index.0 as i32 * dimensions.0, index.1 as i32 * dimensions.1),
-        dimensions,
-    )
-}
+const NORMAL_ICON: Rect = Rect::indexed(Point(0, 2), Rect::ONE_BY_ONE);
+const EXCITED_ICON: Rect = Rect::indexed(Point(1, 2), Rect::ONE_BY_ONE);
+const PHEW_ICON: Rect = Rect::indexed(Point(2, 2), Rect::ONE_BY_ONE);
+const INDICATE_ICON: Rect = Rect::indexed(Point(3, 2), Rect::ONE_BY_ONE);
+const JUMP_ICON: Rect = Rect::indexed(Point(4, 2), Rect::ONE_BY_ONE);
+const HMM_ICON: Rect = Rect::indexed(Point(5, 2), Rect::ONE_BY_ONE);
+const INDICATE2_ICON: Rect = Rect::indexed(Point(6, 2), Rect::ONE_BY_ONE);
 
-const ONE_BY_ONE: Point<i32> = Point(SpriteSheet::STANDARD_WIDTH, SpriteSheet::STANDARD_HEIGHT);
-const TWO_BY_TWO: Point<i32> = Point(
-    SpriteSheet::STANDARD_WIDTH * 2,
-    SpriteSheet::STANDARD_HEIGHT * 2,
-);
-const FOUR_BY_FOUR: Point<i32> = Point(
-    SpriteSheet::STANDARD_WIDTH * 4,
-    SpriteSheet::STANDARD_HEIGHT * 4,
-);
-const FOUR_BY_TWO: Point<i32> = Point(
-    SpriteSheet::STANDARD_WIDTH * 4,
-    SpriteSheet::STANDARD_HEIGHT * 2,
-);
-
-const NORMAL_ICON: Rect = indexed_rect(Point(0, 2), ONE_BY_ONE);
-const EXCITED_ICON: Rect = indexed_rect(Point(1, 2), ONE_BY_ONE);
-const PHEW_ICON: Rect = indexed_rect(Point(2, 2), ONE_BY_ONE);
-const INDICATE_ICON: Rect = indexed_rect(Point(3, 2), ONE_BY_ONE);
-const JUMP_ICON: Rect = indexed_rect(Point(4, 2), ONE_BY_ONE);
-const HMM_ICON: Rect = indexed_rect(Point(5, 2), ONE_BY_ONE);
-const INDICATE2_ICON: Rect = indexed_rect(Point(6, 2), ONE_BY_ONE);
-
-const NO_IMG: Rect = indexed_rect(Point(6, 1), ONE_BY_ONE);
-const COW_IMG: Rect = indexed_rect(Point(0, 2), TWO_BY_TWO);
-const BROWN_COW_IMG: Rect = indexed_rect(Point(1, 2), TWO_BY_TWO);
-const TIED_COW_IMG: Rect = indexed_rect(Point(1, 2), FOUR_BY_TWO);
-const RED_GREEN_IMG: Rect = indexed_rect(Point(2, 0), FOUR_BY_TWO);
-const GOD_LEVEL_IMG: Rect = indexed_rect(Point(0, 3), TWO_BY_TWO);
+const NO_IMG: Rect = Rect::indexed(Point(32, 32), Rect::ONE_BY_ONE);
+const COW_IMG: Rect = Rect::indexed(Point(0, 2), Rect::TWO_BY_TWO);
+const BROWN_COW_IMG: Rect = Rect::indexed(Point(1, 2), Rect::TWO_BY_TWO);
+const TIED_COW_IMG: Rect = Rect::indexed(Point(1, 2), Rect::FOUR_BY_TWO);
+const RED_GREEN_IMG: Rect = Rect::indexed(Point(2, 0), Rect::FOUR_BY_TWO);
+const GOD_LEVEL_IMG: Rect = Rect::indexed(Point(0, 3), Rect::TWO_BY_TWO);
 
 #[rustfmt::skip]
 pub const BEGINNING_TUTORIAL: &[Screen] = &[
@@ -279,8 +257,7 @@ See if you can get some COWs walking!",
     ),
 ];
 
-
-const ARROWS_IMG: Rect = indexed_rect(Point(2, 1), FOUR_BY_TWO);
+const ARROWS_IMG: Rect = Rect::indexed(Point(2, 1), Rect::FOUR_BY_TWO);
 
 #[rustfmt::skip]
 pub const LEVEL_0_1_TUTORIAL: &[Screen] = &[
@@ -315,6 +292,8 @@ ones.",
     ),
 ];
 
+const PLAY_BTN_IMG: Rect = Rect::indexed(Point(0, 4), Rect::TWO_BY_TWO);
+
 #[rustfmt::skip]
 pub const GOD_LEVEL_TUTORIAL: &[Screen] = &[
     Screen::new(NORMAL_ICON, NO_IMG,
@@ -341,7 +320,7 @@ Screen::new(NORMAL_ICON, NO_IMG,
 "For the next level, make sure that all
 COWs end up in a GREEN zone."
     ),
-    Screen::new(NORMAL_ICON, NO_IMG,
+    Screen::new(INDICATE2_ICON, PLAY_BTN_IMG,
 "Once you have finished designing your
 LEAP, press the play button to test that
 everything works."
