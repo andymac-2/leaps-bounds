@@ -2,20 +2,22 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 use crate::direction::Direction;
-use crate::{Point};
+use crate::Point;
 
 use super::board::Layer;
 use super::SuccessState;
 
-mod cell_cursor;
+pub mod cell_cursor;
 mod cell_type;
-mod colour;
+mod cell_graphic;
+pub mod colour;
 mod surroundings;
 
 pub use cell_cursor::{CellCursorEntry, CellPalette, PaletteResult};
 pub use cell_type::CellType;
 pub use colour::Colour;
 pub use surroundings::Surroundings;
+pub use cell_graphic::CellGraphic;
 
 pub trait Cell: Sized {
     /// If both cells are equal, set them to show the correct graphics.
@@ -54,7 +56,7 @@ pub enum OverworldCellType {
     Level5 = 10,
     Level6 = 11,
     // if you decide to add these, make sure you add them to the full_palette
-    
+
     // Level7 = 12,
     // Level8 = 13,
     // Level9 = 14,
@@ -94,7 +96,7 @@ pub enum OverworldCell {
     Level(u8, Colour),
 }
 impl Default for OverworldCell {
-    fn default () -> Self {
+    fn default() -> Self {
         OverworldCell::Empty
     }
 }
@@ -103,27 +105,27 @@ impl PastureCell for OverworldCell {
         match self {
             OverworldCell::Empty => true,
             OverworldCell::Fence(_) => true,
-            OverworldCell::Wall(_) => true, 
-            OverworldCell::BlockedPath(_) => true, 
+            OverworldCell::Wall(_) => true,
+            OverworldCell::BlockedPath(_) => true,
             OverworldCell::ClearPath(_) => false,
-            OverworldCell::Level(_, _) => false,  
+            OverworldCell::Level(_, _) => false,
         }
     }
 }
 impl Cell for OverworldCell {
     fn set_surround(&mut self, direction: Direction, is_adjacent: bool) {
         match *self {
-            OverworldCell::Fence(ref mut surrounds) 
-            | OverworldCell::Wall(ref mut surrounds) 
+            OverworldCell::Fence(ref mut surrounds)
+            | OverworldCell::Wall(ref mut surrounds)
             | OverworldCell::BlockedPath(ref mut surrounds)
-            | OverworldCell::ClearPath(ref mut surrounds)=> {
+            | OverworldCell::ClearPath(ref mut surrounds) => {
                 surrounds.set_surround(direction, is_adjacent)
-            },
-            OverworldCell::Empty => {},
-            OverworldCell::Level(_, _) => {},
+            }
+            OverworldCell::Empty => {}
+            OverworldCell::Level(_, _) => {}
         }
     }
-    fn get_sprite_sheet_index (&self) -> Option<Point<u8>> {
+    fn get_sprite_sheet_index(&self) -> Option<Point<u8>> {
         match *self {
             OverworldCell::Fence(surrounds) => Some(Point((surrounds).into(), 14)),
             OverworldCell::Wall(surrounds) => Some(Point((surrounds).into(), 15)),
@@ -134,7 +136,7 @@ impl Cell for OverworldCell {
                 let y_offset = 16 + (level_num % 4);
                 let x_offset = level_num - (level_num % 4) + u8::from(colour);
                 Some(Point(x_offset, y_offset))
-            },
+            }
             OverworldCell::Empty => Some(Point(0, 4)),
         }
     }
@@ -158,7 +160,7 @@ impl From<PaletteResult<OverworldCellType>> for OverworldCell {
     }
 }
 impl OverworldCell {
-    pub fn can_be_cleared (&self) -> bool {
+    pub fn can_be_cleared(&self) -> bool {
         match self {
             OverworldCell::BlockedPath(_) => true,
             _ => false,
@@ -166,7 +168,7 @@ impl OverworldCell {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Copy, Serialize, Deserialize, PartialEq)]
 pub enum OverlayCell {
     Empty,
     Success(Surroundings),
@@ -186,19 +188,19 @@ impl Cell for OverlayCell {
     }
     fn set_surround(&mut self, direction: Direction, is_adjacent: bool) {
         match *self {
-            OverlayCell::Success(ref mut surrounds) 
-            | OverlayCell::Failure(ref mut surrounds) 
+            OverlayCell::Success(ref mut surrounds)
+            | OverlayCell::Failure(ref mut surrounds)
             | OverlayCell::Input(ref mut surrounds)
-            | OverlayCell::Output(ref mut surrounds)=> {
+            | OverlayCell::Output(ref mut surrounds) => {
                 surrounds.set_surround(direction, is_adjacent)
-            },
+            }
             OverlayCell::Empty => {}
         }
     }
 }
 impl TryFrom<PaletteResult<CellType>> for OverlayCell {
     type Error = ();
-    fn try_from(PaletteResult(cell_type, colour, direction): PaletteResult<CellType>) -> Result<Self, ()> {
+    fn try_from(PaletteResult(cell_type, colour, _): PaletteResult<CellType>) -> Result<Self, ()> {
         match (cell_type, colour) {
             (CellType::Overlay, Colour::Green) => Ok(OverlayCell::Success(Surroundings::new())),
             (CellType::Overlay, Colour::Red) => Ok(OverlayCell::Failure(Surroundings::new())),
@@ -210,13 +212,19 @@ impl TryFrom<PaletteResult<CellType>> for OverlayCell {
     }
 }
 impl OverlayCell {
+    pub fn is_empty(&self) -> bool {
+        if let OverlayCell::Empty = self {
+            return true;
+        }
+        false
+    }
     pub fn success_state(&self) -> SuccessState {
         match self {
             OverlayCell::Success(_) => SuccessState::Succeeded,
             OverlayCell::Failure(_) => SuccessState::Failed,
-            OverlayCell::Empty 
-            | OverlayCell::Input(_)
-            | OverlayCell::Output(_) => SuccessState::Running,
+            OverlayCell::Empty | OverlayCell::Input(_) | OverlayCell::Output(_) => {
+                SuccessState::Running
+            }
         }
     }
 }
@@ -269,14 +277,14 @@ impl PastureCell for GroundCell {
 }
 impl TryFrom<PaletteResult<CellType>> for GroundCell {
     type Error = ();
-    fn try_from(PaletteResult(cell_type, colour, direction): PaletteResult<CellType>) -> Result<Self, ()> {
+    fn try_from(
+        PaletteResult(cell_type, colour, direction): PaletteResult<CellType>,
+    ) -> Result<Self, ()> {
         match cell_type {
             CellType::Empty => Ok(GroundCell::Empty),
             CellType::ColouredBlock => Ok(GroundCell::ColouredBlock(colour)),
             CellType::Arrow => Ok(GroundCell::Arrow(direction)),
-            CellType::ColouredArrow => {
-                Ok(GroundCell::ColouredArrow(colour, direction))
-            }
+            CellType::ColouredArrow => Ok(GroundCell::ColouredArrow(colour, direction)),
             CellType::ArrowBlock => Ok(GroundCell::ArrowBlock(direction)),
             CellType::RotateLeft => Ok(GroundCell::RotateLeft),
             CellType::RotateRight => Ok(GroundCell::RotateRight),

@@ -3,7 +3,8 @@ use std::convert::{TryFrom, TryInto};
 use im_rc::OrdMap;
 use serde::{Deserialize, Serialize};
 
-use super::cell::{Cell, PaletteResult, CellType, GroundCell, OverlayCell};
+use super::cell::{Cell, CellType, GroundCell, OverlayCell, PaletteResult, Colour};
+use super::NotEnoughInputSpace;
 use crate::direction::Direction;
 use crate::js_ffi::draw_layer;
 use crate::{Context2D, Image, Point, SpriteSheet};
@@ -23,7 +24,7 @@ impl<T> Default for LevelLayer<T>
 where
     T: Clone + PartialEq + Cell + Default,
 {
-    fn default () -> Self {
+    fn default() -> Self {
         LevelLayer {
             layer: OrdMap::new(),
             default: T::default(),
@@ -46,7 +47,7 @@ where
     }
 
     pub fn set_cell(&mut self, point: Point<i32>, mut cell: T) {
-        let mut set_surrounds = |direction| {
+        Direction::for_every(|direction| {
             let mut adjacent = point;
             adjacent.increment_2d(direction);
 
@@ -54,12 +55,7 @@ where
                 cell.calculate_surround(&mut other, direction);
                 other
             })
-        };
-
-        set_surrounds(Direction::Up);
-        set_surrounds(Direction::Right);
-        set_surrounds(Direction::Down);
-        set_surrounds(Direction::Left);
+        });
 
         self.set_cell_unchecked(point, cell);
     }
@@ -117,12 +113,48 @@ where
         layer.draw(context, blocks.get_image());
     }
 }
-impl<T> super::Pasture<T> for LevelLayer<T> 
+impl<T> super::Pasture<T> for LevelLayer<T>
 where
     T: Clone + PartialEq + Cell,
 {
     fn get_pasture_cell(&self, point: Point<i32>) -> &T {
         self.get_cell(&point)
+    }
+}
+impl LevelLayer<OverlayCell> {
+    pub fn get_input_coordinates(&self) -> Vec<Point<i32>> {
+        self.layer.iter().filter_map(|(point, overlay_cell)| {
+            if let OverlayCell::Input(_) = overlay_cell {
+                Some(*point)
+            }
+            else {
+                None
+            }
+        }).collect()
+    }
+}
+impl LevelLayer<OverlayCell> {
+    pub fn get_output_coordinates(&self) -> Vec<Point<i32>> {
+        self.layer.iter().filter_map(|(point, overlay_cell)| {
+            if let OverlayCell::Output(_) = overlay_cell {
+                Some(*point)
+            }
+            else {
+                None
+            }
+        }).collect()
+    }
+}
+impl LevelLayer<GroundCell> {
+    pub fn get_coloured_blocks(&self, coordinates: &Vec<Point<i32>>) -> Vec<Colour> {
+        coordinates.iter().filter_map(|point| {
+            if let GroundCell::ColouredBlock(colour) = self.get_cell(point) {
+                Some(*colour)
+            }
+            else {
+                None
+            }
+        }).collect()
     }
 }
 
@@ -137,6 +169,36 @@ impl Board {
             ground: LevelLayer::new(default_cell),
             overlay: LevelLayer::new(default_overlay),
         }
+    }
+    pub fn get_outputs(&self) -> Vec<Colour> {
+        let output_coordinates = self.overlay.get_output_coordinates();
+        self.ground.get_coloured_blocks(&output_coordinates)
+    }
+    pub fn get_inputs(&self) -> Vec<Colour> {
+        let input_coordinates = self.overlay.get_input_coordinates();
+        self.ground.get_coloured_blocks(&input_coordinates)
+    }
+
+    /// Sets the input overlay area as coloured blocks. Returns false and leaves
+    /// the board unchanged if the input area is loess than the input size. It
+    /// will return true if the input fits inside of the input area.
+    pub fn set_inputs(&mut self, input: &Vec<Colour>) -> Result<(), NotEnoughInputSpace> {
+        let input_coordinates = self.overlay.get_input_coordinates();
+        if input_coordinates.len() < input.len() {
+            return Err(NotEnoughInputSpace);
+        };
+
+        let mut input_iter = input.iter();
+        for coordinate in input_coordinates.iter() {
+            if let Some(colour) = input_iter.next() {
+                self.set_ground_cell(*coordinate, GroundCell::ColouredBlock(*colour));
+            }
+            else {
+                self.set_ground_cell(*coordinate, GroundCell::Empty);
+            }
+        };
+
+        Ok(())
     }
 
     pub fn get_ground_cell(&self, point: &Point<i32>) -> &GroundCell {
@@ -164,6 +226,11 @@ impl Board {
         if let Ok(cell) = OverlayCell::try_from(cell_type) {
             self.overlay.set_cell(index, cell)
         }
+    }
+
+    pub fn get_overlay_cell_at_point(&mut self, point: Point<i32>) -> OverlayCell {
+        let index = get_grid_index(point);
+        *self.get_overlay_cell(&index)
     }
 
     pub fn draw_ground(
@@ -224,7 +291,9 @@ impl Layer {
 
     pub fn add_cell(&mut self, sprite_offset: Option<Point<u8>>) {
         assert!(self.buffer.len() % 2 == 0);
-        assert!(self.buffer.len() < (self.grid_dimensions.x() * self.grid_dimensions.y() * 2) as usize);
+        assert!(
+            self.buffer.len() < (self.grid_dimensions.x() * self.grid_dimensions.y() * 2) as usize
+        );
 
         let Point(x, y) = sprite_offset.unwrap_or(Point(Layer::EMPTY, Layer::EMPTY));
         self.buffer.push(x);
@@ -232,7 +301,9 @@ impl Layer {
     }
     pub fn cursor(&self) -> Point<i32> {
         assert!(self.buffer.len() % 2 == 0);
-        assert!(self.buffer.len() <= (self.grid_dimensions.x() * self.grid_dimensions.y() * 2) as usize);
+        assert!(
+            self.buffer.len() <= (self.grid_dimensions.x() * self.grid_dimensions.y() * 2) as usize
+        );
         let length: i32 = (self.buffer.len() / 2).try_into().unwrap();
 
         let x = length % self.grid_dimensions.x();
@@ -240,8 +311,13 @@ impl Layer {
         Point(x, y)
     }
     pub fn is_full(&self) -> bool {
-        assert!(self.buffer.len() <= (self.grid_dimensions.x() * self.grid_dimensions.y() * 2) as usize);
-        self.buffer.len() == (self.grid_dimensions.x() * self.grid_dimensions.y() * 2).try_into().unwrap()
+        assert!(
+            self.buffer.len() <= (self.grid_dimensions.x() * self.grid_dimensions.y() * 2) as usize
+        );
+        self.buffer.len()
+            == (self.grid_dimensions.x() * self.grid_dimensions.y() * 2)
+                .try_into()
+                .unwrap()
     }
     pub fn draw(&self, context: &Context2D, image: &Image) {
         assert!(

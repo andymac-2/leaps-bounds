@@ -14,6 +14,21 @@
     <!-- <link rel="stylesheet" href="css/main.css"> -->
 
     <meta name="theme-color" content="#fafafa">
+    <style> 
+        body {
+            background-color: #40433f;
+        }
+        .canvas {
+            margin: auto;
+            /* padding: 10px; */
+            display: block;
+            border: 3px solid black;
+        }
+        @font-face {
+            font-family: 'KongText';
+            src: url('kongtext.ttf');
+        }
+    </style>
 </head>
 
 <body>
@@ -21,9 +36,9 @@
     <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
   <![endif]-->
 
-    <canvas id="canvas" width="1024" height="512"></canvas>
+    <canvas class="canvas" id="canvas" width="1024" height="512"></canvas>
     <div style="display:none;">
-        <img id="tileset" src="tileset.png">
+        <img id="misc" src="misc.png">
         <img id="blocks" src="blocks.png">
         <img id="sprites" src="sprites.png">
     </div>

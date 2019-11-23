@@ -1,10 +1,9 @@
-use crate::{component, SpriteSheet, Context2D, Assets, util, js_ffi};
+use crate::component::{Object, NextScene};
 use crate::point::Point;
-use crate::scene;
-use crate::scene::{NextScene, Object};
+use crate::{component, js_ffi, util, Assets, Context2D, SpriteSheet};
 
-use super::{StateStack, LevelState, Level, SuccessState};
-use super::cell::{CellType, CellPalette};
+use super::cell::{cell_cursor, CellPalette, CellType};
+use super::{Level, LevelState, StateStack, SuccessState};
 
 #[derive(Debug, Clone)]
 pub struct CowLevel {
@@ -21,7 +20,7 @@ impl CowLevel {
     pub const BOUNDING_RECT: component::Rect = component::Rect {
         top_left: Point(0, 0),
         dimensions: Point(
-            Self::LEVEL_WIDTH * SpriteSheet::STANDARD_WIDTH, 
+            Self::LEVEL_WIDTH * SpriteSheet::STANDARD_WIDTH,
             Self::LEVEL_HEIGHT * SpriteSheet::STANDARD_HEIGHT,
         ),
     };
@@ -32,7 +31,7 @@ impl CowLevel {
             palette: CellPalette::new(CellType::full_palette()),
         }
     }
-    pub fn from_str (string: &'static str) -> Self {
+    pub fn from_str(string: &'static str) -> Self {
         CowLevel::from_state(ron::de::from_str::<LevelState>(string).unwrap())
     }
     pub fn new() -> Self {
@@ -52,7 +51,7 @@ impl Level for CowLevel {
     }
 }
 impl component::Component for CowLevel {
-    type Args = ();
+    type DrawArgs = ();
     fn bounding_rect(&self) -> component::Rect {
         Self::BOUNDING_RECT
     }
@@ -65,7 +64,9 @@ impl component::Component for CowLevel {
         }
 
         let value = self.palette.value();
-        self.states.current_state_mut().set_cell_at_point(point, value);
+        self.states
+            .current_state_mut()
+            .set_cell_at_point(point, value);
 
         true
     }
@@ -74,18 +75,16 @@ impl component::Component for CowLevel {
 
         self.fill_bg(context, super::BG_FILL);
 
-        util::with_saved_context(context, || {
-            self.states.current_state().draw(
-                context,
-                assets,
-                self.states.last_state(),
-                anim_progress,
-            );
-            self.palette.draw(context, assets, ())
-        });
+        self.states.current_state().draw(
+            context,
+            assets,
+            self.states.last_state(),
+            anim_progress,
+        );
+
+        self.palette.fill_bg(context, cell_cursor::BG_COLOUR);
+        self.palette.draw(context, assets, ())
     }
-}
-impl scene::Scene for CowLevel {
     fn called_into(&mut self, _object: Object) {
         self.purge_states();
     }
@@ -93,11 +92,11 @@ impl scene::Scene for CowLevel {
         self.animation_time += dt;
 
         // undo and redo should still be possible after failure
-        if self.keyboard_event(keyboard_state, "KeyR") {
+        if self.keyboard_event(keyboard_state, &["KeyR", "Escape"]) {
             self.purge_states();
         }
 
-        if self.keyboard_event(keyboard_state, "KeyU") {
+        if self.keyboard_event(keyboard_state, &["KeyU", "KeyZ", "Backslash"]) {
             self.states.pop_state();
             self.animation_time = 0.0;
             return NextScene::Continue;
@@ -114,11 +113,10 @@ impl scene::Scene for CowLevel {
                     return NextScene::Continue;
                 }
                 return NextScene::Return(Object::Bool(true));
-            },
+            }
             SuccessState::Failed => {
-                assert!(self.is_finished_animating());
                 return NextScene::Continue;
-            },
+            }
             SuccessState::Running => {}
         };
 

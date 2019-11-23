@@ -5,13 +5,14 @@ use crate::point::interpolate_2d;
 use crate::{console_log, Context2D, Point, SpriteSheet};
 
 use super::board::Board;
-use super::cell::{PastureCell, Colour, GroundCell};
-use super::{LevelState, SuccessState, KeyboardCommand};
+use super::cell::{Colour, GroundCell, PastureCell};
+use super::{KeyboardCommand, LevelState, SuccessState};
 
 #[derive(Clone, Debug, Copy, Serialize, Deserialize)]
 pub enum CowSprite {
     White = 0,
     Grey = 1,
+    Brown = 2,
 }
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
@@ -41,7 +42,10 @@ pub struct Cows {
     cows: Vec<Cow>,
 }
 impl Cows {
-    pub fn new(player: usize, cow_data: Vec<(Point<i32>, Direction, CowSprite, Vec<usize>)>) -> Self {
+    pub fn new(
+        player: usize,
+        cow_data: Vec<(Point<i32>, Direction, CowSprite, Vec<usize>)>,
+    ) -> Self {
         let mut parent_vec = vec![true; cow_data.len()];
         parent_vec[player] = false;
 
@@ -87,7 +91,7 @@ impl Cows {
         let mut acc = SuccessState::Succeeded;
         for cow in self.cows.iter() {
             acc.combine(board.get_overlay_cell(&cow.position).success_state())
-        };
+        }
         acc
     }
 
@@ -100,7 +104,6 @@ impl Cows {
     }
 
     fn command(&mut self, cow_index: CowIndex, board: &mut Board, command: Command) {
-        self.update_children(cow_index, board);
         let cow = self.get_cow_mut(cow_index);
 
         match command {
@@ -126,6 +129,8 @@ impl Cows {
             Command::RotateLeft => cow.rotate_block_left(board),
             Command::RotateRight => cow.rotate_block_right(board),
         }
+
+        self.update_children(cow_index, board);
     }
 
     fn update_children(&mut self, cow_index: CowIndex, board: &mut Board) {
@@ -266,7 +271,12 @@ impl Default for Cow {
     }
 }
 impl Cow {
-    pub fn new(position: Point<i32>, direction: Direction, children: Vec<CowIndex>, sprite: CowSprite) -> Self {
+    pub fn new(
+        position: Point<i32>,
+        direction: Direction,
+        children: Vec<CowIndex>,
+        sprite: CowSprite,
+    ) -> Self {
         Cow {
             position,
             direction,
@@ -283,7 +293,7 @@ impl Cow {
     }
 
     // walk until you hit a wall.
-    pub fn walk_stop<P, C>(&mut self, board: &P, direction: Direction) 
+    pub fn walk_stop<P, C>(&mut self, board: &P, direction: Direction)
     where
         P: super::Pasture<C>,
         C: PastureCell,
@@ -300,7 +310,7 @@ impl Cow {
     }
 
     // when you hit a wall, turn around and bounce the other way.
-    fn walk_bounce<P, C>(&mut self, board: &P) 
+    fn walk_bounce<P, C>(&mut self, board: &P)
     where
         P: super::Pasture<C>,
         C: PastureCell,
@@ -326,6 +336,9 @@ impl Cow {
 
     fn place_block(&mut self, board: &mut Board, colour: Colour) {
         board.set_ground_cell(self.position, GroundCell::ColouredBlock(colour));
+    }
+    fn empty_block(&mut self, board: &mut Board, colour: Colour) {
+        board.set_ground_cell(self.position, GroundCell::Empty);
     }
 
     fn rotate_block_right(&mut self, board: &mut Board) {
@@ -355,7 +368,10 @@ impl Cow {
         animation_frame: u8,
     ) {
         let position = self.get_screen_position(old_position, anim_progress);
-        let sprite_index = Point(self.direction as u8 * LevelState::TOTAL_ANIMATION_FRAMES + animation_frame, self.sprite as u8);
+        let sprite_index = Point(
+            self.direction as u8 * LevelState::TOTAL_ANIMATION_FRAMES + animation_frame,
+            self.sprite as u8,
+        );
 
         sprite_sheet.draw(context, sprite_index, position);
     }

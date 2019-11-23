@@ -136,8 +136,9 @@ function init (rust) {
 
     let blocks = document.getElementById("blocks");
     let sprites = document.getElementById("sprites");
+    let misc = document.getElementById("misc")
 
-    let assets = rust.Assets.new(blocks, sprites);
+    let assets = rust.Assets.new(blocks, sprites, misc);
 
     let old_time = 0;
     let loop = new_time => {

@@ -1,20 +1,21 @@
 use wasm_bindgen::prelude::*;
 
 mod component;
-mod scene;
 mod direction;
 mod js_ffi;
 mod level;
 mod point;
+mod scene;
 mod sprite_sheet;
 mod state_stack;
+mod tutorial;
 mod util;
 
+use component::Component;
 use js_ffi::KeyboardState;
 use point::Point;
+use scene::{Scenes};
 use sprite_sheet::SpriteSheet;
-use scene::{Scene, Scenes};
-use component::Component;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
 // allocator.
@@ -33,20 +34,24 @@ macro_rules! console_log {
 }
 #[macro_export]
 macro_rules! here {
-    () => (crate::console_log!("Arrived at {} line {}.", file!(), line!()))
+    () => {
+        crate::console_log!("Arrived at {} line {}.", file!(), line!())
+    };
 }
 
 #[wasm_bindgen]
 pub struct Assets {
     blocks: SpriteSheet,
     sprites: SpriteSheet,
+    misc: SpriteSheet,
 }
 #[wasm_bindgen]
 impl Assets {
-    pub fn new(blocks: Image, sprites: Image) -> Self {
+    pub fn new(blocks: Image, sprites: Image, misc: Image) -> Self {
         Assets {
             blocks: SpriteSheet::default_size_new(blocks),
             sprites: SpriteSheet::default_size_new(sprites),
+            misc: SpriteSheet::default_size_new(misc),
         }
     }
 }

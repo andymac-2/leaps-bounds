@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::point::Point;
-use crate::scene::{NextScene, Object};
 use crate::direction::Direction;
-use crate::{component, scene, util, Assets, Context2D, KeyboardState};
+use crate::point::Point;
+use crate::component::{NextScene, Object};
+use crate::{component, util, Assets, Context2D, KeyboardState};
 
-use super::cell::{OverworldCell, OverworldCellType, Surroundings};
+use super::cell::{cell_cursor, OverworldCell, OverworldCellType, Surroundings};
 use super::cow::Cow;
 use super::cow_level::CowLevel;
 use super::{board, cell, KeyboardCommand, Level, LevelState};
@@ -26,7 +26,7 @@ impl Default for OverworldLevelState {
     }
 }
 impl component::Component for OverworldLevelState {
-    type Args = (Point<i32>, f64);
+    type DrawArgs = (Point<i32>, f64);
     fn bounding_rect(&self) -> component::Rect {
         CowLevel::BOUNDING_RECT
     }
@@ -34,7 +34,7 @@ impl component::Component for OverworldLevelState {
         &self,
         context: &Context2D,
         assets: &Assets,
-        (old_position, anim_progress): Self::Args,
+        (old_position, anim_progress): Self::DrawArgs,
     ) {
         self.board.draw(
             context,
@@ -62,7 +62,7 @@ impl OverworldLevelState {
     }
     fn get_cell(&self, point: &Point<i32>) -> &cell::OverworldCell {
         self.board.get_cell(point)
-    } 
+    }
     fn set_cell_at_cursor(&mut self, point: Point<i32>, value: cell::OverworldCell) {
         let index = board::get_grid_index(point);
         self.board.set_cell(index, value);
@@ -86,7 +86,7 @@ pub struct OverworldLevel {
     old_position: Point<i32>,
     animation_time: f64,
     levels: [usize; 16],
-    to_reveal_next: Vec<Point<i32>>, 
+    to_reveal_next: Vec<Point<i32>>,
 }
 impl Default for OverworldLevel {
     fn default() -> Self {
@@ -109,7 +109,7 @@ impl Level for OverworldLevel {
     }
 }
 impl component::Component for OverworldLevel {
-    type Args = ();
+    type DrawArgs = ();
     fn bounding_rect(&self) -> component::Rect {
         CowLevel::BOUNDING_RECT
     }
@@ -132,15 +132,14 @@ impl component::Component for OverworldLevel {
 
         self.state
             .draw(context, assets, (self.old_position, anim_progress));
+        self.cell_palette.fill_bg(context, cell_cursor::BG_COLOUR);
         self.cell_palette.draw(context, assets, ());
     }
-}
-impl scene::Scene for OverworldLevel {
     fn returned_into(&mut self, object: Object) {
         assert!(self.to_reveal_next.is_empty());
         if let Object::Bool(true) = object {
             let point = self.state.get_player_position();
-            Self::add_adjacents(&mut self.to_reveal_next, &point);
+            Self::add_adjacents(&mut self.to_reveal_next, point);
         }
     }
     fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene {
@@ -203,29 +202,20 @@ impl OverworldLevel {
         for point in self.to_reveal_next.iter() {
             let cell = self.state.get_cell(point);
             if cell.can_be_cleared() {
-                self.state.set_cell_at_index(*point, OverworldCell::ClearPath(Surroundings::new()));
-                Self::add_adjacents(&mut new_reveals, point);
+                self.state
+                    .set_cell_at_index(*point, OverworldCell::ClearPath(Surroundings::new()));
+                Self::add_adjacents(&mut new_reveals, *point);
             }
-        };
-        
+        }
+
         self.to_reveal_next = new_reveals;
         NextScene::Continue
     }
-    fn add_adjacents(vector: &mut Vec<Point<i32>>, point: &Point<i32>) {
-        let mut up = *point;
-        up.increment_2d(Direction::Up);
-        vector.push(up);
-
-        let mut right = *point;
-        right.increment_2d(Direction::Right);
-        vector.push(right);
-
-        let mut down = *point;
-        down.increment_2d(Direction::Down);
-        vector.push(down);
-
-        let mut left = *point;
-        left.increment_2d(Direction::Left);
-        vector.push(left);
+    fn add_adjacents(vector: &mut Vec<Point<i32>>, point: Point<i32>) {
+        Direction::for_every(|direction| {
+            let mut adjacent = point;
+            adjacent.increment_2d(direction);
+            vector.push(adjacent);
+        });
     }
 }

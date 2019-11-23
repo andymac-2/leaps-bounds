@@ -1,13 +1,13 @@
-use std::convert::{TryInto};
+use std::convert::TryInto;
 
-use wasm_bindgen::JsValue;
-
-use crate::component::{Component, Translation, Rect, combine_dimensions};
-use crate::point::Point;
+use crate::component::{combine_dimensions, Component, Rect, Translation};
 use crate::direction::Direction;
+use crate::point::Point;
 use crate::{Assets, Context2D, SpriteSheet};
 
-use super::{CellType, Colour, OverworldCellType};
+use super::{CellType, Colour, OverworldCellType, CellGraphic};
+
+pub const BG_COLOUR: &str = "rgba(127, 127, 127, 0.5)";
 
 #[derive(Debug, Clone, Copy)]
 pub struct PaletteResult<T>(pub T, pub Colour, pub Direction);
@@ -25,7 +25,7 @@ impl<T> CellPalette<T> {
     const PALETTE_OFFSET: Point<i32> = Point(Self::LEFT_MARGIN, Self::TOP_MARGIN * 4);
 
     pub fn new(palette: Vec<CellCursorEntry<T>>) -> Self {
-        assert!(palette.len() >= 1);
+        assert!(!palette.is_empty());
         CellPalette {
             palette: Translation::new(Self::PALETTE_OFFSET, Palette::new(palette)),
             control: Translation::new(Self::CONTROL_OFFSET, PaletteControl::new()),
@@ -33,29 +33,24 @@ impl<T> CellPalette<T> {
         }
     }
 }
-impl <T: Clone> CellPalette<T> {
+impl<T: Clone> CellPalette<T> {
     pub fn value(&self) -> PaletteResult<T> {
         PaletteResult(
-            self.palette.get_current().clone(), 
-            self.control.colour, 
-            self.control.direction
+            self.palette.get_current().clone(),
+            self.control.colour,
+            self.control.direction,
         )
     }
 }
 impl<T> Component for CellPalette<T> {
-    type Args = ();
+    type DrawArgs = ();
     fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
-        let fill_style = JsValue::from_str("rgba(127, 127, 127, 0.5)");
-        let rect = self.bounding_rect();
-        context.set_fill_style(&fill_style);
-        context.fill_rect(
-            rect.top_left.x().into(), 
-            rect.top_left.y().into(), 
-            rect.dimensions.x().into(), 
-            rect.dimensions.y().into());
-
         self.control.draw(context, assets, ());
-        self.palette.draw(context, assets, (self.control.colour, self.control.direction));
+        self.palette.draw(
+            context,
+            assets,
+            (self.control.colour, self.control.direction),
+        );
     }
     fn bounding_rect(&self) -> Rect {
         combine_dimensions(&self.control, &self.palette)
@@ -76,18 +71,15 @@ impl PaletteControl {
     const HEIGHT: i32 = SpriteSheet::STANDARD_HEIGHT;
     const WIDTH: i32 = SpriteSheet::STANDARD_WIDTH * 4;
 
-    const ROTATE_LEFT_GRAPHIC: CellGraphic = CellGraphic {
-        offset: Point(0, 0),
-        graphic: Point(6, 0),
-    };
-    const ROTATE_COLOUR_GRAPHIC: CellGraphic = CellGraphic {
-        offset: Point(SpriteSheet::STANDARD_WIDTH * 3 / 2, 0),
-        graphic: Point(4, 0),
-    };
-    const ROTATE_RIGHT_GRAPHIC: CellGraphic = CellGraphic {
-        offset: Point(SpriteSheet::STANDARD_WIDTH * 3, 0),
-        graphic: Point(5, 0),
-    };
+    const ROTATE_LEFT_GRAPHIC: CellGraphic = CellGraphic::new(Point(0, 0), Point(6, 0));
+    const ROTATE_COLOUR_GRAPHIC: CellGraphic = CellGraphic::new(
+        Point(SpriteSheet::STANDARD_WIDTH * 3 / 2, 0),
+        Point(4, 0),
+    );
+    const ROTATE_RIGHT_GRAPHIC: CellGraphic = CellGraphic::new(
+        Point(SpriteSheet::STANDARD_WIDTH * 3, 0),
+        Point(5, 0),
+    );
 
     fn new() -> Self {
         PaletteControl {
@@ -97,27 +89,24 @@ impl PaletteControl {
     }
 }
 impl Component for PaletteControl {
-    type Args = ();
+    type DrawArgs = ();
     fn bounding_rect(&self) -> Rect {
         Rect {
             top_left: Point(0, 0),
             dimensions: Point(Self::WIDTH, Self::HEIGHT),
         }
     }
-    fn click (&mut self, point: Point<i32>) -> bool {
+    fn click(&mut self, point: Point<i32>) -> bool {
         if Self::ROTATE_LEFT_GRAPHIC.in_boundary(point) {
             self.direction = self.direction.decrement();
             true
-        }
-        else if Self::ROTATE_COLOUR_GRAPHIC.in_boundary(point) {
+        } else if Self::ROTATE_COLOUR_GRAPHIC.in_boundary(point) {
             self.colour = self.colour.increment();
             true
-        }
-        else if Self::ROTATE_RIGHT_GRAPHIC.in_boundary(point) {
+        } else if Self::ROTATE_RIGHT_GRAPHIC.in_boundary(point) {
             self.direction = self.direction.increment();
             true
-        }
-        else {
+        } else {
             false
         }
     }
@@ -155,8 +144,7 @@ impl<T> Palette<T> {
         let absolute_index = (x_index + y_index * Self::COLUMNS).try_into().unwrap();
         if absolute_index >= self.entries.len() {
             None
-        }
-        else {
+        } else {
             Some(absolute_index)
         }
     }
@@ -165,8 +153,8 @@ impl<T> Palette<T> {
     }
 }
 impl<T> Component for Palette<T> {
-    type Args = (Colour, Direction);
-    fn bounding_rect (&self) -> Rect {
+    type DrawArgs = (Colour, Direction);
+    fn bounding_rect(&self) -> Rect {
         let len_i32: i32 = self.entries.len().try_into().unwrap();
         let rows = (len_i32 + Self::COLUMNS - 1) / Self::COLUMNS;
         let dimensions = Point(Self::COLUMNS, rows) * CellGraphic::CELL_SIZE;
@@ -178,12 +166,10 @@ impl<T> Component for Palette<T> {
     fn click(&mut self, point: Point<i32>) -> bool {
         if !self.in_boundary(point) {
             false
-        }
-        else if let Some(index) = self.get_index_from_point(point) {
+        } else if let Some(index) = self.get_index_from_point(point) {
             self.current = index;
             true
-        }
-        else {
+        } else {
             false
         }
     }
@@ -210,7 +196,7 @@ pub struct CellCursorEntry<T> {
     has_direction: bool,
 }
 impl From<CellType> for CellCursorEntry<CellType> {
-    fn from (cell_type: CellType) -> Self {
+    fn from(cell_type: CellType) -> Self {
         match cell_type {
             CellType::Empty => Self::new(cell_type, Point(8, 0), false, false),
             CellType::ColouredBlock => Self::new(cell_type, Point(0, 0), true, false),
@@ -226,7 +212,7 @@ impl From<CellType> for CellCursorEntry<CellType> {
     }
 }
 impl From<OverworldCellType> for CellCursorEntry<OverworldCellType> {
-    fn from (cell_type: OverworldCellType) -> Self {
+    fn from(cell_type: OverworldCellType) -> Self {
         match cell_type {
             OverworldCellType::Empty => Self::new(cell_type, Point(8, 0), false, false),
             OverworldCellType::Fence => Self::new(cell_type, Point(0, 14), false, false),
@@ -259,39 +245,11 @@ impl<T> CellCursorEntry<T> {
             if self.has_colour {
                 sprite_index_offset += (colour as u8) * Direction::TOTAL_DIRECTIONS;
             }
-        }
-        else if self.has_colour { // and not direction
+        } else if self.has_colour {
+            // and not direction
             sprite_index_offset += colour as u8;
         }
 
         Point(self.graphic.x() + sprite_index_offset, self.graphic.y())
-    }
-}
-
-#[derive(Clone, Debug)]
-struct CellGraphic {
-    offset: Point<i32>,
-    graphic: Point<u8>,
-}
-impl CellGraphic {
-    const CELL_SIZE: Point<i32> = Point(SpriteSheet::STANDARD_WIDTH, SpriteSheet::STANDARD_HEIGHT);
-    fn new(offset: Point<i32>, graphic: Point<u8>) -> Self {
-        CellGraphic {
-            offset,
-            graphic,
-        }
-    }
-}
-impl Component for CellGraphic {
-    type Args = ();
-    fn bounding_rect(&self) -> Rect {
-        Rect {
-            top_left: self.offset,
-            dimensions: Self::CELL_SIZE,
-        }
-    }
-    fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
-        let point = Point(self.offset.x().into(), self.offset.y().into());
-        assets.blocks.draw(context, self.graphic, point);
     }
 }

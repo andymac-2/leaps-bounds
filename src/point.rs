@@ -14,12 +14,12 @@ impl<T: Copy> Point<T> {
     }
 }
 impl<T: Ord> Ord for Point<T> {
-    fn cmp (&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.1.cmp(&other.1).then_with(|| self.0.cmp(&other.0))
     }
 }
 impl<T: Ord> PartialOrd for Point<T> {
-    fn partial_cmp (&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -32,11 +32,8 @@ impl Point<i32> {
             Direction::Left => self.0 -= 1,
         }
     }
-    pub fn is_inside(&self, dimensions: Point<i32>) -> bool {
-        self.x() >= 0 
-            && self.x() < dimensions.x()
-            && self.y() >= 0
-            && self.y() < dimensions.y()
+    pub fn is_inside(self, dimensions: Point<i32>) -> bool {
+        self.x() >= 0 && self.x() < dimensions.x() && self.y() >= 0 && self.y() < dimensions.y()
     }
 }
 impl<Rhs, T> std::ops::Mul<Point<Rhs>> for Point<T>

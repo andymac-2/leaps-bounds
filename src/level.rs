@@ -6,20 +6,22 @@ use crate::js_ffi::KeyboardState;
 use crate::state_stack::StateStack;
 use crate::{Assets, Context2D, Point};
 
-mod cow;
-mod cell;
 mod board;
-mod god_level;
+pub mod cell;
+mod cow;
 pub mod cow_level;
+pub mod god_level;
 pub mod overworld_level;
 
-use cow::{Command, Cows, CowSprite};
+use board::Board;
+use cell::{CellType, GroundCell, OverlayCell, PaletteResult};
+use cow::{Command, CowSprite, Cows};
 use cow_level::CowLevel;
-use board::{Board};
-use cell::{PaletteResult, GroundCell, OverlayCell, CellType};
 
 // green.
 const BG_FILL: &str = "#669238";
+
+struct NotEnoughInputSpace;
 
 #[derive(Debug, Clone, Copy)]
 pub enum KeyboardCommand {
@@ -27,7 +29,7 @@ pub enum KeyboardCommand {
     Space,
 }
 impl KeyboardCommand {
-    fn is_space (&self) -> bool {
+    fn is_space(&self) -> bool {
         match self {
             Self::Space => true,
             _ => false,
@@ -36,35 +38,38 @@ impl KeyboardCommand {
 }
 
 trait Level {
-
     fn is_finished_animating(&self) -> bool;
     fn get_keyboard_command(&self, keyboard_state: &KeyboardState) -> Option<KeyboardCommand> {
-        if self.keyboard_event(keyboard_state, "ArrowUp") {
+        if self.keyboard_event(keyboard_state, &["ArrowUp", "KeyW"]) {
             Some(KeyboardCommand::Direction(Direction::Up))
-        } else if self.keyboard_event(keyboard_state, "ArrowRight") {
+        } else if self.keyboard_event(keyboard_state, &["ArrowRight", "KeyD"]) {
             Some(KeyboardCommand::Direction(Direction::Right))
-        } else if self.keyboard_event(keyboard_state, "ArrowDown") {
+        } else if self.keyboard_event(keyboard_state, &["ArrowDown", "KeyS"]) {
             Some(KeyboardCommand::Direction(Direction::Down))
-        } else if self.keyboard_event(keyboard_state, "ArrowLeft") {
+        } else if self.keyboard_event(keyboard_state, &["ArrowLeft", "KeyA"]) {
             Some(KeyboardCommand::Direction(Direction::Left))
-        } else if self.keyboard_event(keyboard_state, "Space") {
+        } else if self.keyboard_event(keyboard_state, &["Space", "Enter"]) {
             Some(KeyboardCommand::Space)
         } else {
             None
         }
     }
-    fn keyboard_event(&self, keyboard_state: &KeyboardState, code: &str) -> bool {
-        if self.is_finished_animating() {
-            return keyboard_state.is_held(code);
+    fn keyboard_event(&self, keyboard_state: &KeyboardState, codes: &[&str]) -> bool {
+        for code in codes.iter() {
+            if self.is_finished_animating() && keyboard_state.is_held(code) {
+                return true;
+            }
+            if keyboard_state.is_pressed(code) {
+                return true;
+            }
         }
-        keyboard_state.is_pressed(code)
+        false
     }
 }
 
-trait Pasture<C> {
+pub trait Pasture<C> {
     fn get_pasture_cell(&self, point: Point<i32>) -> &C;
 }
-
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SuccessState {
@@ -73,13 +78,13 @@ pub enum SuccessState {
     Succeeded = 2,
 }
 impl SuccessState {
-    fn is_running (&self) -> bool{
+    fn is_running(&self) -> bool {
         match self {
             SuccessState::Running => true,
             _ => false,
         }
     }
-    fn is_success (&self) -> bool {
+    fn is_success(&self) -> bool {
         match self {
             SuccessState::Succeeded => true,
             _ => false,
@@ -89,13 +94,13 @@ impl SuccessState {
         match (*self, other) {
             (SuccessState::Failed, _) | (_, SuccessState::Failed) => {
                 *self = SuccessState::Failed;
-            },
+            }
             (SuccessState::Running, _) | (_, SuccessState::Running) => {
                 *self = SuccessState::Running;
-            },
+            }
             _ => {
                 *self = SuccessState::Succeeded;
-            },
+            }
         }
     }
 }
@@ -130,8 +135,18 @@ impl LevelState {
         self.cows.success_state(&self.board)
     }
 
+    fn get_overlay_cell_at_point(&mut self, point: Point<i32>) -> OverlayCell {
+        self.board.get_overlay_cell_at_point(point)
+    }
     fn set_cell_at_point(&mut self, point: Point<i32>, cell_type: PaletteResult<CellType>) {
         self.board.set_cell_at_point(point, cell_type);
+    }
+
+    fn set_inputs(&mut self, inputs: &Vec<cell::Colour>) -> Result<(), NotEnoughInputSpace> {
+        self.board.set_inputs(inputs)
+    }
+    fn get_outputs(&self) -> Vec<cell::Colour> {
+        self.board.get_outputs()
     }
 
     fn auto(&mut self) {

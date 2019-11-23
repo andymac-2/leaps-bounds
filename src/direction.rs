@@ -33,6 +33,15 @@ impl Direction {
             Direction::Left => Direction::Right,
         }
     }
+    pub fn for_every<F>(mut func: F)
+    where
+        F: FnMut(Direction),
+    {
+        func(Direction::Up);
+        func(Direction::Left);
+        func(Direction::Right);
+        func(Direction::Down);
+    }
 }
 impl Default for Direction {
     fn default() -> Self {

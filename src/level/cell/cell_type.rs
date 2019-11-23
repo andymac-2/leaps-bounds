@@ -42,4 +42,10 @@ impl CellType {
             CellType::Overlay.into(),
         ]
     }
+    pub fn is_empty(self) -> bool {
+        match self {
+            CellType::Empty => true,
+            _ => false,
+        }
+    }
 }
