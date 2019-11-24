@@ -24,14 +24,22 @@ impl Tutorial {
         self.cursor += 1;
         self.text_cursor = 0;
     }
+    fn current_cursor(&self) -> usize {
+        if self.cursor >= self.screens.len() {
+            self.screens.len() - 1
+        }
+        else {
+            self.cursor
+        }
+    }
     fn current_text(&self) -> &'static str {
-        self.screens[self.cursor].text
+        self.screens[self.current_cursor()].text
     }
     fn current_image(&self) -> &Rect {
-        &self.screens[self.cursor].image
+        &self.screens[self.current_cursor()].image
     }
     fn current_icon(&self) -> &Rect {
-        &self.screens[self.cursor].icon
+        &self.screens[self.current_cursor()].icon
     }
 
     fn is_screen_finished(&self) -> bool {
@@ -91,11 +99,19 @@ impl component::Component for Tutorial {
         };
 
         if self.cursor >= self.screens.len() {
-            self.reset();
             NextScene::Jump(self.destination, Object::Null)
         } else {
             NextScene::Continue
         }
+    }
+    fn called_into(&mut self, _object: Object) {
+        self.reset();
+    }
+    fn jumped_into(&mut self, _object: Object) {
+        self.reset();
+    }
+    fn returned_into(&mut self, _object: Object) {
+        self.reset();
     }
     fn bounding_rect(&self) -> component::Rect {
         Self::BOUNDING_RECT

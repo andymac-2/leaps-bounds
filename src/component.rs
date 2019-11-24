@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 
+mod transition;
+
+pub use transition::Transition;
+
 use crate::point::Point;
 use crate::util::with_saved_context;
 use crate::{Assets, Context2D, KeyboardState, SpriteSheet};
@@ -78,6 +82,7 @@ pub enum Object {
     Map(HashMap<String, Object>),
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum NextScene {
     Continue,
     Return(Object),
@@ -183,7 +188,7 @@ impl<T: Component> Component for Translation<T> {
     fn bounding_rect(&self) -> Rect {
         self.component.bounding_rect().translate(self.translation)
     }
-    fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene {
+    fn step(&mut self, dt: f64,  keyboard_state: &KeyboardState) -> NextScene {
         self.component.step(dt, keyboard_state)
     }
     fn click(&mut self, point: Point<i32>) -> bool {

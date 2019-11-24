@@ -59,7 +59,7 @@ impl<'a> MetaTestResult {
             context.set_text_align("center");
             let black = wasm_bindgen::JsValue::from_str("black");
             context.set_fill_style(&black);
-            context.fill_text("<empty>", offset.x(), offset.y()).unwrap();
+            context.fill_text("<empty>", offset.x(), offset.y() + 15.0).unwrap();
 
             context.restore();
             return;
@@ -270,10 +270,10 @@ impl component::Component for GodLevel {
         self.fill_bg(context, super::BG_FILL);
 
         if self.running_state.is_drawable() {
+            self.running_state.draw(context, assets, ());
+        } else {
             self.initial_state
                 .draw(context, assets, &self.initial_state, 0.0);
-        } else {
-            self.running_state.draw(context, assets, ());
         }
 
         if !self.running_state.is_report() {

@@ -94,6 +94,7 @@ pub enum OverworldCell {
     BlockedPath(Surroundings),
     ClearPath(Surroundings),
     Level(u8, Colour),
+    Finish,
 }
 impl Default for OverworldCell {
     fn default() -> Self {
@@ -109,6 +110,7 @@ impl PastureCell for OverworldCell {
             OverworldCell::BlockedPath(_) => true,
             OverworldCell::ClearPath(_) => false,
             OverworldCell::Level(_, _) => false,
+            OverworldCell::Finish => false,
         }
     }
 }
@@ -123,6 +125,7 @@ impl Cell for OverworldCell {
             }
             OverworldCell::Empty => {}
             OverworldCell::Level(_, _) => {}
+            OverworldCell::Finish => {}
         }
     }
     fn get_sprite_sheet_index(&self) -> Option<Point<u8>> {
@@ -138,6 +141,7 @@ impl Cell for OverworldCell {
                 Some(Point(x_offset, y_offset))
             }
             OverworldCell::Empty => Some(Point(0, 4)),
+            OverworldCell::Finish => Some(Point(4, 2)),
         }
     }
 }

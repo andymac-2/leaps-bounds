@@ -156,9 +156,13 @@ impl component::Component for OverworldLevel {
         if let Some(command) = self.get_keyboard_command(keyboard_state) {
             self.old_position = self.state.get_player_position();
             if command.is_space() {
-                if let OverworldCell::Level(id, _) = self.current_cell() {
+                let current_cell = self.current_cell();
+                if let OverworldCell::Level(id, _) = current_cell {
                     let next_level = self.levels[usize::from(*id)];
                     return NextScene::Call(next_level, Object::Null);
+                }
+                else if let OverworldCell::Finish = current_cell {
+                    return NextScene::Return(Object::Bool(true));
                 }
             }
             self.state.command(command);
