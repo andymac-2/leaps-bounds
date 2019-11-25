@@ -55,9 +55,10 @@ pub enum OverworldCellType {
     Level4 = 9,
     Level5 = 10,
     Level6 = 11,
+    Level7 = 12,
+    Finish = 21,
     // if you decide to add these, make sure you add them to the full_palette
 
-    // Level7 = 12,
     // Level8 = 13,
     // Level9 = 14,
     // Level10 = 15,
@@ -75,6 +76,7 @@ impl OverworldCellType {
             OverworldCellType::Wall.into(),
             OverworldCellType::BlockedPath.into(),
             OverworldCellType::ClearPath.into(),
+            OverworldCellType::Finish.into(),
             OverworldCellType::Level0.into(),
             OverworldCellType::Level1.into(),
             OverworldCellType::Level2.into(),
@@ -82,6 +84,7 @@ impl OverworldCellType {
             OverworldCellType::Level4.into(),
             OverworldCellType::Level5.into(),
             OverworldCellType::Level6.into(),
+            OverworldCellType::Level7.into(),
         ]
     }
 }
@@ -141,7 +144,7 @@ impl Cell for OverworldCell {
                 Some(Point(x_offset, y_offset))
             }
             OverworldCell::Empty => Some(Point(0, 4)),
-            OverworldCell::Finish => Some(Point(4, 2)),
+            OverworldCell::Finish => Some(Point(4, 1)),
         }
     }
 }
@@ -153,6 +156,7 @@ impl From<PaletteResult<OverworldCellType>> for OverworldCell {
             OverworldCellType::Wall => OverworldCell::Wall(Surroundings::new()),
             OverworldCellType::BlockedPath => OverworldCell::BlockedPath(Surroundings::new()),
             OverworldCellType::ClearPath => OverworldCell::ClearPath(Surroundings::new()),
+            OverworldCellType::Finish => OverworldCell::Finish,
             OverworldCellType::Level0 => OverworldCell::Level(0, colour),
             OverworldCellType::Level1 => OverworldCell::Level(1, colour),
             OverworldCellType::Level2 => OverworldCell::Level(2, colour),
@@ -160,6 +164,7 @@ impl From<PaletteResult<OverworldCellType>> for OverworldCell {
             OverworldCellType::Level4 => OverworldCell::Level(4, colour),
             OverworldCellType::Level5 => OverworldCell::Level(5, colour),
             OverworldCellType::Level6 => OverworldCell::Level(6, colour),
+            OverworldCellType::Level7 => OverworldCell::Level(7, colour),
         }
     }
 }
@@ -222,7 +227,7 @@ impl OverlayCell {
         }
         false
     }
-    pub fn success_state(&self) -> SuccessState {
+    pub fn success_state(self) -> SuccessState {
         match self {
             OverlayCell::Success(_) => SuccessState::Succeeded,
             OverlayCell::Failure(_) => SuccessState::Failed,

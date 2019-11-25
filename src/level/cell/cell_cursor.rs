@@ -215,6 +215,7 @@ impl From<OverworldCellType> for CellCursorEntry<OverworldCellType> {
             OverworldCellType::Wall => Self::new(cell_type, Point(0, 15), false, false),
             OverworldCellType::BlockedPath => Self::new(cell_type, Point(0, 8), false, false),
             OverworldCellType::ClearPath => Self::new(cell_type, Point(0, 9), false, false),
+            OverworldCellType::Finish => Self::new(cell_type, Point(4, 1), false, false),
             OverworldCellType::Level0 => Self::new(cell_type, Point(0, 16), true, false),
             OverworldCellType::Level1 => Self::new(cell_type, Point(0, 17), true, false),
             OverworldCellType::Level2 => Self::new(cell_type, Point(0, 18), true, false),
@@ -222,6 +223,7 @@ impl From<OverworldCellType> for CellCursorEntry<OverworldCellType> {
             OverworldCellType::Level4 => Self::new(cell_type, Point(4, 16), true, false),
             OverworldCellType::Level5 => Self::new(cell_type, Point(4, 17), true, false),
             OverworldCellType::Level6 => Self::new(cell_type, Point(4, 18), true, false),
+            OverworldCellType::Level7 => Self::new(cell_type, Point(4, 19), true, false),
         }
     }
 }

@@ -150,7 +150,7 @@ impl LevelLayer<OverlayCell> {
     }
 }
 impl LevelLayer<GroundCell> {
-    pub fn get_coloured_blocks(&self, coordinates: &Vec<Point<i32>>) -> Vec<Colour> {
+    pub fn get_coloured_blocks(&self, coordinates: &[Point<i32>]) -> Vec<Colour> {
         coordinates
             .iter()
             .filter_map(|point| {
@@ -188,7 +188,7 @@ impl Board {
     /// Sets the input overlay area as coloured blocks. Returns false and leaves
     /// the board unchanged if the input area is loess than the input size. It
     /// will return true if the input fits inside of the input area.
-    pub fn set_inputs(&mut self, input: &Vec<Colour>) -> Result<(), NotEnoughInputSpace> {
+    pub fn set_inputs(&mut self, input: &[Colour]) -> Result<(), NotEnoughInputSpace> {
         let input_coordinates = self.overlay.get_input_coordinates();
         if input_coordinates.len() < input.len() {
             return Err(NotEnoughInputSpace);

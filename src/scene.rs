@@ -1,6 +1,6 @@
 use crate::{Assets, Context2D};
 
-use crate::component::{Component, NextScene, Rect, Transition};
+use crate::component::{Component, NextScene, Rect, Transition, ReturnButton};
 use crate::js_ffi::KeyboardState;
 use crate::level::god_level::Test;
 use crate::level::{cow_level, overworld_level};
@@ -100,7 +100,7 @@ impl Scenes {
                     Test::new(vec![Red, Red, Red, Red, Blue], Reject),
                 ]),
                 // 11 main overworld
-                overworld_level(
+                overworld_level_no_return(
                     include_str!("level_data/main_overworld.ron"),
                     [0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50],
                 ),
@@ -112,21 +112,28 @@ impl Scenes {
 }
 
 fn cow_level(string: &'static str) -> Box<dyn Component<DrawArgs = ()>> {
-    Box::new(Transition::new(cow_level::CowLevel::from_str(string)))
+    let level = cow_level::CowLevel::from_str(string);
+    Box::new(Transition::new(ReturnButton::new(level)))
 }
 
+fn overworld_level_no_return(
+    string: &'static str,
+    connections: [usize; 16],
+) -> Box<dyn Component<DrawArgs = ()>> {
+    let level = overworld_level::OverworldLevel::from_data(string, connections);
+    Box::new(Transition::new(level))
+}
 fn overworld_level(
     string: &'static str,
     connections: [usize; 16],
 ) -> Box<dyn Component<DrawArgs = ()>> {
-    Box::new(Transition::new(overworld_level::OverworldLevel::from_data(
-        string,
-        connections,
-    )))
+    let level = overworld_level::OverworldLevel::from_data(string, connections);
+    Box::new(Transition::new(ReturnButton::new(level)))
 }
 
 fn god_level(tests: Vec<Test>) -> Box<dyn Component<DrawArgs = ()>> {
-    Box::new(Transition::new(crate::level::god_level::GodLevel::new(tests)))
+    let level = crate::level::god_level::GodLevel::new(tests);
+    Box::new(Transition::new(ReturnButton::new(level)))
 }
 
 fn tutorial(

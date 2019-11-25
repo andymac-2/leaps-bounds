@@ -142,7 +142,7 @@ impl LevelState {
         self.board.set_cell_at_point(point, cell_type);
     }
 
-    fn set_inputs(&mut self, inputs: &Vec<cell::Colour>) -> Result<(), NotEnoughInputSpace> {
+    fn set_inputs(&mut self, inputs: &[cell::Colour]) -> Result<(), NotEnoughInputSpace> {
         self.board.set_inputs(inputs)
     }
     fn get_outputs(&self) -> Vec<cell::Colour> {

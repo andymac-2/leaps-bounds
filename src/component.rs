@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
 mod transition;
+mod return_btn;
 
 pub use transition::Transition;
+pub use return_btn::ReturnButton;
 
 use crate::point::Point;
 use crate::util::with_saved_context;
@@ -24,16 +26,7 @@ pub trait Component {
     }
     /// Default behaviour assumes an AABB
     fn in_boundary(&self, point: Point<i32>) -> bool {
-        let Rect {
-            top_left,
-            dimensions,
-        } = self.bounding_rect();
-        let local_point = point - top_left;
-
-        local_point.x() >= 0
-            && local_point.x() < dimensions.x()
-            && local_point.y() >= 0
-            && local_point.y() < dimensions.y()
+        self.bounding_rect().inside(point)
     }
     fn top_left(&self) -> Point<i32> {
         self.bounding_rect().top_left
@@ -72,6 +65,7 @@ pub trait Component {
 }
 
 // A generic data object, kind of like JSON.
+#[must_use]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Object {
     Null,
@@ -91,6 +85,7 @@ pub enum NextScene {
 }
 
 // invariant: dimensions are positive
+#[must_use]
 #[derive(Clone, Copy, Debug)]
 pub struct Rect {
     pub top_left: Point<i32>,
@@ -127,6 +122,28 @@ impl Rect {
     pub fn translate(&self, translation: Point<i32>) -> Rect {
         let top_left = self.top_left + translation;
         Rect::new(top_left, self.dimensions)
+    }
+    pub fn shrink_top_right(&self, new_dimensions: Point<i32>) -> Rect {
+        let right = self.top_left.x() + self.dimensions.x();
+        let new_left = right - new_dimensions.x();
+        Rect::new(Point(new_left, self.top_left.y()), new_dimensions)
+    }
+    pub fn shrink_bottom_left(&self, new_dimensions: Point<i32>) -> Rect {
+        let bottom = self.top_left.y() + self.dimensions.y();
+        let new_top = bottom - new_dimensions.y();
+        Rect::new(Point(self.top_left.x(), new_top), new_dimensions)
+    }
+    pub fn inside(&self, point: Point<i32>) -> bool {
+        let Rect {
+            top_left,
+            dimensions,
+        } = self;
+        let local_point = point - *top_left;
+
+        local_point.x() >= 0
+            && local_point.x() < dimensions.x()
+            && local_point.y() >= 0
+            && local_point.y() < dimensions.y()
     }
 
     pub const fn indexed(index: Point<u8>, dimensions: Point<i32>) -> Rect {
