@@ -2,9 +2,11 @@ use std::collections::HashMap;
 
 mod transition;
 mod return_btn;
+mod brief;
 
 pub use transition::Transition;
 pub use return_btn::ReturnButton;
+pub use brief::Brief;
 
 use crate::point::Point;
 use crate::util::with_saved_context;
@@ -104,6 +106,11 @@ impl Rect {
             dimensions: self.dimensions + increase + increase,
         }
     }
+    pub fn centre(&self) -> Point<i32> {
+        let x = self.top_left.x() + (self.dimensions.x() / 2);
+        let y = self.top_left.y() + (self.dimensions.y() / 2);
+        Point(x, y)
+    }
     pub fn combine(&self, other: &Rect) -> Rect {
         let self_bot_right = self.top_left + self.dimensions;
         let other_bot_right = other.top_left + other.dimensions;
@@ -123,10 +130,14 @@ impl Rect {
         let top_left = self.top_left + translation;
         Rect::new(top_left, self.dimensions)
     }
-    pub fn shrink_top_right(&self, new_dimensions: Point<i32>) -> Rect {
+    pub fn shrink_bottom_right(&self, new_dimensions: Point<i32>) -> Rect {
+        let bottom = self.top_left.y() + self.dimensions.y();
+        let new_top = bottom - new_dimensions.y();
+
         let right = self.top_left.x() + self.dimensions.x();
         let new_left = right - new_dimensions.x();
-        Rect::new(Point(new_left, self.top_left.y()), new_dimensions)
+
+        Rect::new(Point(new_left, new_top), new_dimensions)
     }
     pub fn shrink_bottom_left(&self, new_dimensions: Point<i32>) -> Rect {
         let bottom = self.top_left.y() + self.dimensions.y();

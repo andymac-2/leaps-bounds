@@ -3,7 +3,7 @@ use crate::point::Point;
 use crate::util;
 use crate::{component, Assets, Context2D, KeyboardState, SpriteSheet};
 
-use super::cell::{cell_cursor, CellGraphic, CellPalette, CellType, Colour, PaletteResult};
+use super::cell::{cell_cursor, CellGraphic, CellPalette, CellType, PaletteResult};
 use super::cow_level::CowLevel;
 use super::{LevelState, SuccessState};
 

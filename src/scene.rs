@@ -1,6 +1,6 @@
 use crate::{Assets, Context2D};
 
-use crate::component::{Component, NextScene, Rect, Transition, ReturnButton};
+use crate::component::{Component, NextScene, Rect, Transition, ReturnButton, Brief};
 use crate::js_ffi::KeyboardState;
 use crate::level::god_level::Test;
 use crate::level::{cow_level, overworld_level};
@@ -59,6 +59,8 @@ impl Scenes {
         use crate::level::cell::Colour::*;
         use crate::level::god_level::TestTarget::*;
 
+
+        // MAX BRIEF COLUMN WIDTH: 48
         Scenes {
             scenes: vec![
                 // 0
@@ -73,10 +75,16 @@ impl Scenes {
                 // 3
                 cow_level(include_str!("level_data/level_0_2.ron")),
                 //4
-                god_level(vec![
-                    Test::new(vec![Red], Accept),
-                    Test::new(vec![Blue], Reject),
-                ]),
+                god_level(
+                    "ACCEPT if there is a RED\n\
+                    block as input, REJECT if\n\
+                    there is a BLUE block as\n\
+                    input.",
+                    vec![
+                        Test::new(vec![Red], Accept),
+                        Test::new(vec![Blue], Reject),
+                    ]
+                ),
                 // 5
                 tutorial(1, tutorial::LEVEL_0_TUTORIAL),
                 // 6
@@ -86,24 +94,62 @@ impl Scenes {
                 //8
                 cow_level(include_str!("level_data/level_0_3.ron")),
                 // 9 test god level
-                god_level(vec![
-                    Test::new(vec![], Accept),
-                ]),
-                // 10 
-                god_level(vec![
-                    Test::new(vec![Red, Red, Red, Red], Accept),
-                    Test::new(vec![Red, Red, Red, Red, Red, Red], Accept),
-                    Test::new(vec![], Accept),
-                    Test::new(vec![Red, Red, Blue, Red], Reject),
-                    Test::new(vec![Blue], Reject),
-                    Test::new(vec![Blue, Blue, Blue, Blue, Blue], Reject),
-                    Test::new(vec![Red, Red, Red, Red, Blue], Reject),
-                ]),
+                god_level(
+                    "ACCEPT all cases. (Send\n\
+                    all COWs to the GREEN\n\
+                    zone.)",
+                    vec![
+                        Test::new(vec![], Accept),
+                    ]
+                ),
+                // 10 accept if all red
+                god_level(
+                    "ACCEPT if all of the\n\
+                    inputs are RED. REJECT if\n\
+                    there is a BLUE block\n\
+                    anywhere in the input.",
+                    vec![
+                        Test::new(vec![Red, Red, Red, Red], Accept),
+                        Test::new(vec![Red, Red, Red, Red, Red, Red], Accept),
+                        Test::new(vec![], Accept),
+                        Test::new(vec![Red, Red, Blue, Red], Reject),
+                        Test::new(vec![Blue], Reject),
+                        Test::new(vec![Blue, Blue, Blue, Blue, Blue], Reject),
+                        Test::new(vec![Red, Red, Red, Red, Blue], Reject),
+                    ]
+                ),
                 // 11 main overworld
                 overworld_level_no_return(
                     include_str!("level_data/main_overworld.ron"),
                     [0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50],
                 ),
+                // 12 change all red to blue and vice versa.
+                god_level(
+                    "Return the INPUT except\n\
+                    swap the RED blocks with\n\
+                    BLUE blocks and vice versa.",
+                    vec![
+                        Test::new(vec![Red, Red, Red, Red], AcceptWith(vec![Blue, Blue, Blue, Blue])),
+                        Test::new(vec![Red, Red, Red], AcceptWith(vec![Blue, Blue, Blue])),
+                        Test::new(vec![], AcceptWith(vec![])),
+                        Test::new(vec![Red, Red, Blue, Red], AcceptWith(vec![Blue, Blue, Red, Blue])),
+                        Test::new(vec![Blue], AcceptWith(vec![Red])),
+                        Test::new(vec![Blue, Blue, Blue, Blue, Blue], AcceptWith(vec![Red, Red, Red, Red, Red])),
+                        Test::new(vec![Red, Blue, Red, Red, Blue], AcceptWith(vec![Blue, Red, Blue, Blue, Red])),
+                    ]
+                ),
+                // 13 return the original, but remove any Blues
+                god_level(
+                    "Return the input, except\n\
+                    remove any BLUE blocks.",
+                    vec![
+                        Test::new(vec![Red, Red, Red, Red], AcceptWith(vec![Red, Red, Red, Red])),
+                        Test::new(vec![Red, Blue, Blue, Red], AcceptWith(vec![Red, Red])),
+                        Test::new(vec![], AcceptWith(vec![])),
+                        Test::new(vec![Blue, Blue, Blue, Blue], AcceptWith(vec![])),
+                        Test::new(vec![Blue, Red, Red, Red], AcceptWith(vec![Red, Red, Red])),
+                    ]
+                )
             ],
             current_scene: 6,
             scene_stack: Vec::new(),
@@ -131,9 +177,9 @@ fn overworld_level(
     Box::new(Transition::new(ReturnButton::new(level)))
 }
 
-fn god_level(tests: Vec<Test>) -> Box<dyn Component<DrawArgs = ()>> {
+fn god_level(description: &'static str, tests: Vec<Test>) -> Box<dyn Component<DrawArgs = ()>> {
     let level = crate::level::god_level::GodLevel::new(tests);
-    Box::new(Transition::new(ReturnButton::new(level)))
+    Box::new(Transition::new(Brief::new(description, ReturnButton::new(level))))
 }
 
 fn tutorial(
