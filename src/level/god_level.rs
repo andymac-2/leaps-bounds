@@ -13,6 +13,7 @@ use test::{MetaTestResult, TestResult};
 pub use test::{Test, TestTarget};
 
 pub struct GodLevel {
+    name: &'static str,
     control_panel: ControlPanel,
     initial_state: LevelState,
     running_state: GodLevelStatus,
@@ -22,13 +23,15 @@ pub struct GodLevel {
 }
 impl GodLevel {
     const MIN_SPEED: f64 = 500.0;
-    pub fn new(tests: Vec<Test>) -> Self {
+    const MAX_SPEED_SCALE: f64 = 100.0;
+    pub fn new(name: &'static str, tests: Vec<Test>) -> Self {
         let palette = CellPalette::new(CellType::full_palette());
         GodLevel {
+            name,
             control_panel: ControlPanel::new(palette),
             initial_state: LevelState::new(),
             running_state: GodLevelStatus::new(),
-            speed: Self::MIN_SPEED,
+            speed: 1.0,
             tests,
             current_test: 0,
         }
@@ -44,10 +47,38 @@ impl GodLevel {
         let test = self.get_current_test().clone();
 
         self.running_state.stop();
-        self.running_state.start(state, test, self.speed);
+        self.running_state.start(state, test);
 
         self.current_test += 1;
     }
+    fn reset_tests(&mut self) {
+        self.running_state.stop();
+        self.current_test = 0;
+    }
+    fn save_state(&self) {
+        let local_storage = util::get_storage();
+        let state_str = ron::ser::to_string(&self.initial_state).unwrap();
+
+        if local_storage.set_item(self.name, &state_str).is_err() {
+            crate::console_error!("Could not save to local storage");
+        }
+    }
+    fn restore_state(&mut self) {
+        let local_storage = util::get_storage();
+
+        match local_storage.get_item(self.name) {
+            Err(_) => crate::console_error!("Could not access local storage"),
+            Ok(None) => {},
+            Ok(Some(string)) => {
+                let state: LevelState = ron::de::from_str(&string).unwrap();
+        
+                self.initial_state = state;
+                self.running_state = GodLevelStatus::new();
+                self.current_test = 0;
+            },
+        }
+    }
+
     fn control_button_press(&mut self, button: ControlButton) {
         match button {
             ControlButton::Play => {
@@ -55,12 +86,13 @@ impl GodLevel {
                     self.running_state.play();
                     return;
                 }
+
+                self.save_state();
                 self.current_test = 0;
                 self.next_test();
             }
             ControlButton::Stop => {
-                self.current_test = 0;
-                self.running_state.stop()
+                self.reset_tests();
             }
             ControlButton::Pause => self.running_state.pause(),
         }
@@ -69,8 +101,8 @@ impl GodLevel {
 impl component::Component for GodLevel {
     type DrawArgs = ();
     fn called_into(&mut self, _object: Object) {
-        self.current_test = 0;
-        self.running_state.stop();
+        self.restore_state();
+        self.reset_tests();
     }
     fn bounding_rect(&self) -> component::Rect {
         CowLevel::BOUNDING_RECT
@@ -110,7 +142,7 @@ impl component::Component for GodLevel {
         }
     }
     fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene {
-        self.running_state.step(dt, keyboard_state);
+        self.running_state.step(dt * self.speed, keyboard_state);
         if self.running_state.is_succeeded() {
             if self.is_success() {
                 return NextScene::Return(Object::Bool(true));
@@ -139,10 +171,10 @@ impl GodLevelStatus {
     fn stop(&mut self) {
         *self = Self::Stopped;
     }
-    fn start(&mut self, mut state: LevelState, test: Test, speed: f64) {
+    fn start(&mut self, mut state: LevelState, test: Test) {
         assert!(self.is_stopped());
         if let Ok(()) = state.set_inputs(test.input()) {
-            *self = Self::Playing(test, GodLevelRunningState::new(state, speed));
+            *self = Self::Playing(test, GodLevelRunningState::new(state));
         } else {
             let result = MetaTestResult::new(test, TestResult::NotEnoughInputSpace);
             *self = Self::Report(result);
@@ -249,15 +281,13 @@ struct GodLevelRunningState {
     current_state: LevelState,
     old_state: LevelState,
     animation_time: f64,
-    speed: f64,
 }
 impl GodLevelRunningState {
-    fn new(initial_state: LevelState, speed: f64) -> Self {
+    fn new(initial_state: LevelState) -> Self {
         GodLevelRunningState {
             current_state: initial_state.clone(),
             old_state: initial_state,
-            animation_time: speed,
-            speed,
+            animation_time: GodLevel::MIN_SPEED,
         }
     }
     fn result(&self) -> Option<TestResult> {
@@ -272,12 +302,12 @@ impl GodLevelRunningState {
 
     /// is complete if all cows are in a success zone or one is in a failure zone.
     fn is_complete(&self) -> bool {
-        !self.current_state.success_state().is_running() && self.animation_time > self.speed
+        !self.current_state.success_state().is_running() && self.animation_time > GodLevel::MIN_SPEED
     }
 
     fn step(&mut self, dt: f64) {
         self.animation_time += dt;
-        if self.animation_time < self.speed || !self.current_state.success_state().is_running() {
+        if self.animation_time < GodLevel::MIN_SPEED || !self.current_state.success_state().is_running() {
             return;
         }
 
@@ -292,7 +322,7 @@ impl component::Component for GodLevelRunningState {
         CowLevel::BOUNDING_RECT
     }
     fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
-        let anim_progress = util::clamp(self.animation_time / self.speed, 0.0, 1.0);
+        let anim_progress = util::clamp(self.animation_time / GodLevel::MIN_SPEED, 0.0, 1.0);
         self.current_state
             .draw(context, assets, &self.old_state, anim_progress);
     }

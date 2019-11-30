@@ -212,7 +212,7 @@ level.",
 ];
 
 #[rustfmt::skip]
-pub const LEVEL_0_TUTORIAL: &[Screen] = &[
+pub const LEVEL_0_0_TUTORIAL: &[Screen] = &[
     Screen::new(NORMAL_ICON, COW_IMG,
 "Helcome to the Logically Executed
 Automatic Pasture! We have discovered
@@ -306,6 +306,52 @@ on the ground.",
 up in the GREEN areas and not the RED
 ones.",
     ),
+Screen::new(HMM_ICON, RED_GREEN_IMG,
+"If you get stuck, you can press the
+U key to undo your last move. Or you
+can press the R key to restart the
+level from scratch!",
+    ),
+];
+
+const FOUR_COLOURED_BLOCKS_IMG: Rect = Rect::indexed(Point(1, 3), Rect::FOUR_BY_TWO);
+const FOUR_COLOURED_ARROWS_IMG: Rect = Rect::indexed(Point(1, 4), Rect::FOUR_BY_TWO);
+
+#[rustfmt::skip]
+pub const LEVEL_0_4_TUTORIAL: &[Screen] = &[
+    Screen::new(NORMAL_ICON, ARROWS_IMG,
+"Not Owned COWs will always follow the
+instructions written on the ground. We
+have already seen COWs following arrows.",
+    ),
+    Screen::new(INDICATE_ICON, FOUR_COLOURED_BLOCKS_IMG,
+"In our LEAPS we have rocks that are
+coloured. We say they are COLOURED ROCKS
+for short. That's an acronym for... you
+know what? who cares?",
+    ),
+    Screen::new(HMM_ICON, FOUR_COLOURED_BLOCKS_IMG,
+"If a COW encounters a COLOURED BLOCK,
+the block will be copied to all of the
+COWs that it owns.",
+    ),
+    Screen::new(INDICATE_ICON, FOUR_COLOURED_ARROWS_IMG,
+"In addition to this we have
+TRIANGULAR HUE-MANAGED COW-BRANCHING
+DEVICES, or COLOURED ARROWS for short,
+obviously.",
+    ),
+    Screen::new(INDICATE2_ICON, FOUR_COLOURED_ARROWS_IMG,
+"If a COW encounters a COLOURED ARROW,
+the COW will move in that direction if
+ANY of its children are on top of that
+colour.",
+    ),
+    Screen::new(EXCITED_ICON, FOUR_COLOURED_ARROWS_IMG,
+"But at the same time, the coloured block
+underneath the COW will completely
+disappear.",
+    ),
 ];
 
 const PLAY_BTN_IMG: Rect = Rect::indexed(Point(0, 4), Rect::TWO_BY_TWO);
@@ -340,5 +386,21 @@ COWs end up in a GREEN zone."
 "Once you have finished designing your
 LEAP, press the play button to test that
 everything works."
+    ),
+];
+
+#[rustfmt::skip]
+pub const INCOMPLETE_LEVEL: &[Screen] = &[
+    Screen::new(PHEW_ICON, NO_IMG,
+"It appears that the designer of this
+game has had TIME RESTRICTIONS and
+his REAL LIFE has come between you
+and COMPLETEING THE GAME",
+    ),
+    Screen::new(NORMAL_ICON, NO_IMG,
+"If you would like to make a complaint,
+or would like to see more of the game
+finished, open an issue on GITHUB at
+github.com/andymac-2/leaps-bounds",
     ),
 ];

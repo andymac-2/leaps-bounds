@@ -21,6 +21,7 @@ pub enum Command {
     Halt,
     Walk(Direction),
     PlaceBlock(Colour),
+    DeleteCell,
     RotateRight,
     RotateLeft,
 }
@@ -119,13 +120,20 @@ impl Cows {
                     | GroundCell::Wall(_) => cow.walk_bounce(board),
                     GroundCell::Arrow(direction) => cow.walk_stop(board, direction),
                     GroundCell::ColouredArrow(colour, direction) => {
-                        self.conditional_walk(cow_index, board, colour, direction)
+                        // Caching warning. Children is cached here.
+                        let children = cow.children.clone();
+                        
+                        self.conditional_walk(cow_index, board, colour, direction);
+                        children.into_iter().for_each(|child_index| {
+                            self.command(child_index, board, Command::DeleteCell);
+                        });
                     }
                 };
             }
             Command::Halt => {}
             Command::Walk(direction) => cow.walk_stop(board, direction),
             Command::PlaceBlock(colour) => cow.place_block(board, colour),
+            Command::DeleteCell => cow.delete_cell(board),
             Command::RotateLeft => cow.rotate_block_left(board),
             Command::RotateRight => cow.rotate_block_right(board),
         }
@@ -337,8 +345,10 @@ impl Cow {
     fn place_block(&mut self, board: &mut Board, colour: Colour) {
         board.set_ground_cell(self.position, GroundCell::ColouredBlock(colour));
     }
-    fn empty_block(&mut self, board: &mut Board, colour: Colour) {
-        board.set_ground_cell(self.position, GroundCell::Empty);
+    fn delete_cell(&mut self, board: &mut Board) {
+        if let GroundCell::ColouredBlock(_) = self.get_cell(board) {
+            board.set_ground_cell(self.position, GroundCell::Empty);
+        }
     }
 
     fn rotate_block_right(&mut self, board: &mut Board) {

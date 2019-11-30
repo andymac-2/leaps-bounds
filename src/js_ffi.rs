@@ -7,6 +7,9 @@ extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     pub fn log(s: &str);
 
+    #[wasm_bindgen(js_namespace = console)]
+    pub fn error(s: &str);
+
     pub type KeyboardState;
 
     #[wasm_bindgen(constructor)]

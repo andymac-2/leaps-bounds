@@ -33,6 +33,15 @@ macro_rules! console_log {
     ($($t:tt)*) => (crate::js_ffi::log(&format_args!($($t)*).to_string()))
 }
 #[macro_export]
+macro_rules! console_error {
+    ($($t:tt)*) => {{
+        let user_string = std::fmt::format(format_args!($($t)*));
+        let string = std::fmt::format(format_args!(
+            "Error at {} line {}: {}", file!(), line!(), user_string)); 
+        crate::js_ffi::error(&string)
+    }}
+}
+#[macro_export]
 macro_rules! here {
     () => {
         crate::console_log!("Arrived at {} line {}.", file!(), line!())

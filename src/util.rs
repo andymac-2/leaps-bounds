@@ -21,3 +21,8 @@ pub fn clamp(value: f64, lower: f64, upper: f64) -> f64 {
     }
     value
 }
+
+pub fn get_storage () -> web_sys::Storage {
+    let window = web_sys::window().unwrap();
+    window.local_storage().unwrap().unwrap()
+}

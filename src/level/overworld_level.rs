@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use web_sys::Storage;
+
 use crate::component::{NextScene, Object};
 use crate::direction::Direction;
 use crate::point::Point;
@@ -82,6 +84,7 @@ impl OverworldLevelState {
 #[derive(Debug, Clone)]
 pub struct OverworldLevel {
     cell_palette: cell::CellPalette<cell::OverworldCellType>,
+    name: &'static str,
     state: OverworldLevelState,
     old_position: Point<i32>,
     animation_time: f64,
@@ -95,6 +98,7 @@ impl Default for OverworldLevel {
 
         OverworldLevel {
             cell_palette: cell::CellPalette::new(OverworldCellType::full_palette()),
+            name: "",
             state,
             old_position,
             animation_time: 0.0,
@@ -135,13 +139,6 @@ impl component::Component for OverworldLevel {
         self.cell_palette.fill_bg(context, cell_cursor::BG_COLOUR);
         self.cell_palette.draw(context, assets, ());
     }
-    fn returned_into(&mut self, object: Object) {
-        assert!(self.to_reveal_next.is_empty());
-        if let Object::Bool(true) = object {
-            let point = self.state.get_player_position();
-            Self::add_adjacents(&mut self.to_reveal_next, point);
-        }
-    }
     fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene {
         self.animation_time += dt;
 
@@ -178,23 +175,60 @@ impl component::Component for OverworldLevel {
 
         NextScene::Continue
     }
+
+    fn returned_into(&mut self, object: Object) {
+        assert!(self.to_reveal_next.is_empty());
+        if let Object::Bool(true) = object {
+            let point = self.state.get_player_position();
+            Self::add_adjacents(&mut self.to_reveal_next, point);
+        }
+    }
+    fn called_into(&mut self, _object: Object) {
+        self.restore_state();
+    }
 }
 impl OverworldLevel {
     const CELL_REVEAL_TIME: f64 = 300.0;
     fn log_level(&self) {
         crate::console_log!("{}", ron::ser::to_string(&self.state).unwrap());
     }
-    pub fn from_data(string: &str, connections: [usize; 16]) -> Self {
+    pub fn from_data(name: &'static str, string: &str, connections: [usize; 16]) -> Self {
         let state: OverworldLevelState = ron::de::from_str(string).unwrap();
         let position = state.get_player_position();
 
         OverworldLevel {
             cell_palette: cell::CellPalette::new(OverworldCellType::full_palette()),
+            name,
             state,
             old_position: position,
             animation_time: 0.0,
             levels: connections,
             to_reveal_next: Vec::new(),
+        }
+    }
+    fn restore_state(&mut self) {
+        assert!(self.to_reveal_next.is_empty());
+        let local_storage = util::get_storage();
+
+        match local_storage.get_item(self.name) {
+            Err(_) => crate::console_error!("Could not access local storage"),
+            Ok(None) => {},
+            Ok(Some(string)) => {
+                let state: OverworldLevelState = ron::de::from_str(&string).unwrap();
+                let position = state.get_player_position();
+        
+                self.state = state;
+                self.old_position = position;
+                self.animation_time = 0.0;
+            },
+        }
+    }
+    fn save_state(&self) {
+        let local_storage = util::get_storage();
+        let state_str = ron::ser::to_string(&self.state).unwrap();
+
+        if local_storage.set_item(self.name, &state_str).is_err() {
+            crate::console_error!("Could not save to local storage");
         }
     }
     fn current_cell(&self) -> &cell::OverworldCell {
@@ -216,6 +250,10 @@ impl OverworldLevel {
                     .set_cell_at_index(*point, OverworldCell::ClearPath(Surroundings::new()));
                 Self::add_adjacents(&mut new_reveals, *point);
             }
+        }
+
+        if new_reveals.is_empty() {
+            self.save_state();
         }
 
         self.to_reveal_next = new_reveals;
