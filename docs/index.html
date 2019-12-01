@@ -1,0 +1,51 @@
+<!doctype html>
+<html class="no-js" lang="">
+
+<head>
+    <meta charset="utf-8">
+    <title>Leaps and Bounds</title>
+    <meta name="description" content="Oh look, cows!">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="manifest" href="site.webmanifest">
+    <link rel="apple-touch-icon" href="icon.png">
+    <!-- Place favicon.ico in the root directory -->
+
+    <!-- <link rel="stylesheet" href="css/main.css"> -->
+
+    <meta name="theme-color" content="#fafafa">
+    <style> 
+        body {
+            background-color: #40433f;
+        }
+        .canvas {
+            margin: auto;
+            /* padding: 10px; */
+            display: block;
+            border: 3px solid black;
+        }
+        @font-face {
+            font-family: 'KongText';
+            src: url('kongtext.ttf');
+        }
+    </style>
+</head>
+
+<body>
+    <!--[if IE]>
+    <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
+  <![endif]-->
+
+    <canvas class="canvas" id="canvas" width="1024" height="512"></canvas>
+    <div style="display:none;">
+        <img id="misc" src="misc.png">
+        <img id="blocks" src="blocks.png">
+        <img id="sprites" src="sprites.png">
+    </div>
+    <audio id="thinking">
+        <source src="thinking.mp3" type="audio/mpeg">
+    </audio>
+    <script src="index.js"></script>
+</body>
+
+</html>

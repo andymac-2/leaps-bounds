@@ -17,7 +17,7 @@ use point::Point;
 use scene::Scenes;
 use sprite_sheet::SpriteSheet;
 
-const DEBUG: bool = true;
+const DEBUG: bool = false;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
 // allocator.
