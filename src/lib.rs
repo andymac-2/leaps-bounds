@@ -12,10 +12,12 @@ mod tutorial;
 mod util;
 
 use component::Component;
-use js_ffi::KeyboardState;
+use js_ffi::{KeyboardState, BasicAudioPlayer};
 use point::Point;
 use scene::Scenes;
 use sprite_sheet::SpriteSheet;
+
+const DEBUG: bool = true;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
 // allocator.
@@ -69,6 +71,7 @@ impl Assets {
 pub struct LeapsAndBounds {
     scenes: Scenes,
     keyboard_state: KeyboardState,
+    audio: js_ffi::BasicAudioPlayer,
 }
 impl Default for LeapsAndBounds {
     fn default() -> Self {
@@ -86,6 +89,7 @@ impl LeapsAndBounds {
         LeapsAndBounds {
             scenes: Scenes::new(),
             keyboard_state: KeyboardState::new(),
+            audio: BasicAudioPlayer::new()
         }
     }
     pub fn step(&mut self, dt: f64) {
@@ -98,6 +102,7 @@ impl LeapsAndBounds {
         context.restore();
     }
     pub fn left_click(&mut self, x: i32, y: i32) {
+        self.audio.play_sound("thinking");
         self.scenes.click(Point(x, y));
     }
 }

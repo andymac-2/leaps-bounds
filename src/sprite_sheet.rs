@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use crate::component::Rect;
 use crate::point::Point;
 use crate::{Context2D, Image};

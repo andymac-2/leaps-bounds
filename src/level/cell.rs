@@ -221,12 +221,6 @@ impl TryFrom<PaletteResult<CellType>> for OverlayCell {
     }
 }
 impl OverlayCell {
-    pub fn is_empty(&self) -> bool {
-        if let OverlayCell::Empty = self {
-            return true;
-        }
-        false
-    }
     pub fn success_state(self) -> SuccessState {
         match self {
             OverlayCell::Success(_) => SuccessState::Succeeded,

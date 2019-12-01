@@ -364,7 +364,7 @@ work, it's time to give you free reign
 over the design over the LEAP.",
     ),
     Screen::new(INDICATE_ICON, GOD_LEVEL_IMG,
-"Levels whewre you have free reign will
+"Levels where you have free reign will
 be coloured BROWN on you map.",
     ),
     Screen::new(NORMAL_ICON, NO_IMG,
@@ -390,6 +390,86 @@ everything works."
 ];
 
 #[rustfmt::skip]
+pub const SPEED_TUTORIAL: &[Screen] = &[
+    Screen::new(NORMAL_ICON, COW_IMG,
+"A hot tip! If you want your tests to run
+faster, press the SPACE button to fast
+forward",
+    ),
+    Screen::new(PHEW_ICON, COW_IMG,
+"Why isn't there a graphical button?
+Becuase I'm writing this on November
+30th and don't have any time to
+implement it.",
+    ),
+    Screen::new(HMM_ICON, COW_IMG,
+"Oh you wanted a COMPLETE game? Well
+I'm sorry, this will just have to do.",
+    ),
+];
+
+pub const INPUT_ICON: Rect = Rect::indexed(Point(0, 3), Rect::ONE_BY_ONE);
+
+#[rustfmt::skip]
+pub const INPUT_TUTORIAL: &[Screen] = &[
+    Screen::new(NORMAL_ICON, COW_IMG,
+"In addition to making COWs go into the
+GREEN zone, we also like them to solve
+PUZZLES.",
+    ),
+    Screen::new(JUMP_ICON, INPUT_ICON,
+"To do this we need to give them
+something new each time: some INPUTS.",
+    ),
+    Screen::new(NORMAL_ICON, INPUT_ICON,
+"If you don't have enough room for all
+of the INPUTS, your tests will fail.",
+    ),
+    Screen::new(INDICATE2_ICON, INPUT_ICON,
+"The next level only requires ONE (1)
+tile for it's INPUT. If you need more
+than one input, they are ordered left
+to right, top to bottom.",
+    ),
+    Screen::new(JUMP_ICON, INPUT_ICON,
+"Try placing a YELLOW INPUT ZONE in your
+LEAP and see what happens!",
+    ),
+    Screen::new(NORMAL_ICON, RED_GREEN_IMG,
+"To win this level, Send the COWs to the
+GREEN zone if the INPUT is RED, if the
+input is BLUE, send at least one COW to
+a RED zone.",
+    ),
+];
+
+pub const OUTPUT_ICON: Rect = Rect::indexed(Point(1, 3), Rect::ONE_BY_ONE);
+
+#[rustfmt::skip]
+pub const OUTPUT_TUTORIAL: &[Screen] = &[
+    Screen::new(NORMAL_ICON, COW_IMG,
+"Now that you understand INPUT, it's time
+to master OUTPUT",
+    ),
+    Screen::new(JUMP_ICON, OUTPUT_ICON,
+"OUTPUTS are designated by a BLUE zone.
+When you want to OUTPUT a value, write
+it to the BLUE ZONE",
+    ),
+    Screen::new(NORMAL_ICON, OUTPUT_ICON,
+"Make sure to have enough room for all of
+your outputs otherwise, your tests will
+not pass.",
+    ),
+    Screen::new(INDICATE2_ICON, OUTPUT_ICON,
+"The next level only requires a single
+output. Write a RED block to the OUTPUT
+and then send all of the COWs to the
+GREEN zone.",
+    ),
+];
+
+#[rustfmt::skip]
 pub const INCOMPLETE_LEVEL: &[Screen] = &[
     Screen::new(PHEW_ICON, NO_IMG,
 "It appears that the designer of this
@@ -402,5 +482,10 @@ and COMPLETEING THE GAME",
 or would like to see more of the game
 finished, open an issue on GITHUB at
 github.com/andymac-2/leaps-bounds",
+    ),
+Screen::new(NORMAL_ICON, NO_IMG,
+"Music by Eric Matyas
+
+www.soundimage.org",
     ),
 ];

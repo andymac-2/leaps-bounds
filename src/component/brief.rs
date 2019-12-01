@@ -99,9 +99,11 @@ impl<T: Component> Component for Brief<T> {
         self.scene.returned_into(object)
     }
     fn called_into(&mut self, object: super::Object) {
+        self.is_expanded = true;
         self.scene.called_into(object)
     }
     fn jumped_into(&mut self, object: super::Object) {
+        self.is_expanded = true;
         self.scene.jumped_into(object)
     }
 }

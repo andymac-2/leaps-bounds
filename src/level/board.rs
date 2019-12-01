@@ -180,10 +180,6 @@ impl Board {
         let output_coordinates = self.overlay.get_output_coordinates();
         self.ground.get_coloured_blocks(&output_coordinates)
     }
-    pub fn get_inputs(&self) -> Vec<Colour> {
-        let input_coordinates = self.overlay.get_input_coordinates();
-        self.ground.get_coloured_blocks(&input_coordinates)
-    }
 
     /// Sets the input overlay area as coloured blocks. Returns false and leaves
     /// the board unchanged if the input area is loess than the input size. It
@@ -231,11 +227,6 @@ impl Board {
         if let Ok(cell) = OverlayCell::try_from(cell_type) {
             self.overlay.set_cell(index, cell)
         }
-    }
-
-    pub fn get_overlay_cell_at_point(&mut self, point: Point<i32>) -> OverlayCell {
-        let index = get_grid_index(point);
-        *self.get_overlay_cell(&index)
     }
 
     pub fn draw_ground(

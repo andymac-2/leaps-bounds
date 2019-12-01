@@ -74,11 +74,12 @@ impl Scenes {
             cow_level(include_str!("level_data/level_0_2.ron")),
             //4
             god_level(
-                "level_0_3",
+                "level_1_1",
                 "ACCEPT if there is a RED\n\
                 block as input, REJECT if\n\
                 there is a BLUE block as\n\
-                input.",
+                input.\n\
+                Input length: 1",
                 vec![
                     Test::new(vec![Red], Accept),
                     Test::new(vec![Blue], Reject),
@@ -94,7 +95,7 @@ impl Scenes {
             cow_level(include_str!("level_data/level_0_3.ron")),
             // 9
             god_level(
-                "level_0_4",
+                "level_1_0",
                 "ACCEPT all cases. (Send\n\
                 all COWs to the GREEN\n\
                 zone.)",
@@ -104,11 +105,12 @@ impl Scenes {
             ),
             // 10 accept if all red
             god_level(
-                "level_0_5",
+                "level_1_2",
                 "ACCEPT if all of the\n\
                 inputs are RED. REJECT if\n\
                 there is a BLUE block\n\
-                anywhere in the input.",
+                anywhere in the input.\n\
+                Max input length: 6",
                 vec![
                     Test::new(vec![Red, Red, Red, Red], Accept),
                     Test::new(vec![Red, Red, Red, Red, Red, Red], Accept),
@@ -123,14 +125,15 @@ impl Scenes {
             overworld_level_no_return(
                 "main_overworld",
                 include_str!("level_data/main_overworld.ron"),
-                [0, 20, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18],
+                [0, 20, 29, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18],
             ),
-            // 12 change all red to blue and vice versa.
+            // 12
             god_level(
-                "level_0_6",
+                "level_2_0",
                 "Return the INPUT except\n\
                 swap the RED blocks with\n\
-                BLUE blocks and vice versa.",
+                BLUE blocks.\n\
+                Max input length: 5",
                 vec![
                     Test::new(vec![Red, Red, Red, Red], AcceptWith(vec![Blue, Blue, Blue, Blue])),
                     Test::new(vec![Red, Red, Red], AcceptWith(vec![Blue, Blue, Blue])),
@@ -143,9 +146,10 @@ impl Scenes {
             ),
             // 13
             god_level(
-                "level_0_7",
+                "level_2_1",
                 "Return the input, except\n\
-                remove any BLUE blocks.",
+                remove any BLUE blocks.\n\
+                Max input length: 4",
                 vec![
                     Test::new(vec![Red, Red, Red, Red], AcceptWith(vec![Red, Red, Red, Red])),
                     Test::new(vec![Red, Blue, Blue, Red], AcceptWith(vec![Red, Red])),
@@ -170,14 +174,115 @@ impl Scenes {
             overworld_level(
                 "overworld_1",
                 include_str!("level_data/overworld_1.ron"),
-                [18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18],
+                [21, 22, 24, 26, 23, 25, 28, 18, 18, 18, 18, 18, 18, 18, 18, 18],
             ),
             // 21
             tutorial(9, tutorial::GOD_LEVEL_TUTORIAL),
-
+            // 22
+            tutorial(4, tutorial::INPUT_TUTORIAL),
+            // 23
+            god_level(
+                "level_1_4",
+                "ACCEPT if the INPUT is\n\
+                alternating RED and BLUE,\n\
+                REJECT otherwise\n\
+                Max input length: 8",
+                vec![
+                    Test::new(vec![Red, Blue, Red, Blue], Accept),
+                    Test::new(vec![Blue, Red], Accept),
+                    Test::new(vec![Red, Blue, Red, Blue, Red, Blue, Red, Blue, Red], Accept),
+                    Test::new(vec![Red, Blue, Blue, Blue], Reject),
+                    Test::new(vec![], Accept),
+                    Test::new(vec![Red, Red], Reject),
+                ]
+            ),
+            // 24
+            tutorial(10, tutorial::SPEED_TUTORIAL),
+            // 25
+            god_level(
+                "level_1_5",
+                "COPY the INPUT to the\n\
+                OUTPUT. The INPUT may\n\
+                contain RED or BLUE blocks\n\
+                Max input length: 8",
+                vec![
+                    Test::new(vec![Red, Blue, Red, Blue], AcceptWith(vec![Red, Blue, Red, Blue])),
+                    Test::new(vec![Red], AcceptWith(vec![Red])),
+                    Test::new(vec![], AcceptWith(vec![])),
+                    Test::new(vec![Red, Red, Blue, Blue, Red, Blue, Red, Blue], AcceptWith(vec![Red, Red, Blue, Blue, Red, Blue, Red, Blue])),
+                    Test::new(vec![Red, Red, Red, Red, Red, Red, Red, Red], AcceptWith(vec![Red, Red, Red, Red, Red, Red, Red, Red])),
+                ]
+            ),
+            // 26
+            tutorial(27, tutorial::OUTPUT_TUTORIAL),
+            // 27
+            god_level(
+                "level_1_3",
+                "Write a RED block to the\n\
+                OUTPUT, then ACCEPT.\n\
+                Input length: 1",
+                vec![
+                    Test::new(vec![], AcceptWith(vec!(Red))),
+                ]
+            ),
+            // 28
+            god_level(
+                "level_1_6",
+                "COPY the INPUT to the\n\
+                OUTPUT. The INPUT may\n\
+                contain RED, BLUE or\n\
+                GREEN blocks\n\
+                Max input length: 8",
+                vec![
+                    Test::new(vec![Red, Blue, Red, Green], AcceptWith(vec![Red, Blue, Red, Green])),
+                    Test::new(vec![Green], AcceptWith(vec![Green])),
+                    Test::new(vec![], AcceptWith(vec![])),
+                    Test::new(vec![Red, Green, Blue, Blue, Green, Blue, Red, Green], AcceptWith(vec![Red, Green, Blue, Blue, Green, Blue, Red, Green])),
+                    Test::new(vec![Red, Red, Red, Red, Green, Red, Red, Red], AcceptWith(vec![Red, Red, Red, Red, Green, Red, Red, Red])),
+                ]
+            ),
+            // 29
+            overworld_level(
+                "overworld_2",
+                include_str!("level_data/overworld_2.ron"),
+                [12, 13, 30, 31, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18],
+            ),
+            // 30
+            god_level(
+                "level_1_3",
+                "Accept if there are more\n\
+                RED blocks than BLUE blocks\n\
+                in the INPUT.\n\
+                Max length: 8",
+                vec![
+                    Test::new(vec![Red, Blue, Red, Blue, Blue, Blue, Red, Blue], Reject),
+                    Test::new(vec![Red, Blue, Red, Red, Red, Blue, Red, Red], Accept),
+                    Test::new(vec![Blue, Blue, Red, Blue, Red, Blue, Red, Red], Reject),
+                    Test::new(vec![Blue, Red, Red, Blue, Red, Blue, Red, Red], Accept),
+                    Test::new(vec![], Reject),
+                    Test::new(vec![Red], Accept),
+                ]
+            ),
+            // 31
+            god_level(
+                "level_1_3",
+                "Return the INPUT but with\n\
+                all of the RED inputs at\n\
+                the start, and all of the\n\
+                BLUE inputs at the end\n\
+                Max length: 8",
+                vec![
+                    Test::new(vec![Red, Blue, Red, Red, Blue, Blue, Red, Blue], AcceptWith(vec![Red, Red, Red, Red, Blue, Blue, Blue, Blue])),
+                    Test::new(vec![Red, Blue, Red, Red, Red, Blue, Red, Red], AcceptWith(vec![Red, Red, Red, Red, Red, Red, Blue, Blue])),
+                    Test::new(vec![Blue, Blue, Red, Blue, Red, Blue, Red, Red], AcceptWith(vec![Red, Red, Red, Red, Blue, Blue, Blue, Blue])),
+                    Test::new(vec![Blue, Red, Red, Blue, Red, Blue, Red, Red], AcceptWith(vec![Red, Red, Red, Red, Red, Blue, Blue, Blue])),
+                    Test::new(vec![], AcceptWith(vec![])),
+                    Test::new(vec![Blue, Red],AcceptWith(vec![Red, Blue])),
+                ]
+            ),
         ];
 
-        // MAX BRIEF COLUMN WIDTH: 48
+        // MAX BRIEF COLUMN WIDTH: 44
         Scenes {
             scenes,
             current_scene: 6,

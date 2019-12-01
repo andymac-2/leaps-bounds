@@ -13,12 +13,6 @@ impl CellGraphic {
     pub const fn new(offset: Point<i32>, graphic: Point<u8>) -> Self {
         CellGraphic { offset, graphic }
     }
-    pub fn set_graphic(&mut self, point: Point<u8>) {
-        self.graphic = point;
-    }
-    pub fn set_offset(&mut self, point: Point<i32>) {
-        self.offset = point;
-    }
 }
 impl component::Component for CellGraphic {
     type DrawArgs = ();

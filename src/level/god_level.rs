@@ -118,13 +118,19 @@ impl component::Component for GodLevel {
             return true;
         }
 
-        if !self.running_state.is_stopped() {
-            return false;
+        match &mut self.running_state {
+            GodLevelStatus::Report(result) => {
+                let result = result.clone();
+                self.running_state.close_report(&result);
+                true
+            },
+            GodLevelStatus::Stopped => {
+                let value = self.control_panel.cell_palette_value();
+                self.initial_state.set_cell_at_point(point, value);
+                true
+            },
+            _ => false
         }
-
-        let value = self.control_panel.cell_palette_value();
-        self.initial_state.set_cell_at_point(point, value);
-        true
     }
     fn draw(&self, context: &Context2D, assets: &Assets, _args: ()) {
         self.fill_bg(context, super::BG_FILL);
@@ -142,6 +148,14 @@ impl component::Component for GodLevel {
         }
     }
     fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene {
+        if keyboard_state.is_pressed("Add") || keyboard_state.is_pressed("ArrowUp") {
+            self.speed += 1.0;
+        }
+        if keyboard_state.is_pressed("Subtract") || keyboard_state.is_pressed("ArrowDown") {
+            self.speed -= 1.0;
+        }
+        self.speed = util::clamp(self.speed, 1.0, Self::MAX_SPEED_SCALE);
+
         self.running_state.step(dt * self.speed, keyboard_state);
         if self.running_state.is_succeeded() {
             if self.is_success() {
@@ -159,8 +173,8 @@ impl component::Component for GodLevel {
 #[derive(Clone, Debug)]
 enum GodLevelStatus {
     Stopped,
-    Paused(Test, GodLevelRunningState),
-    Playing(Test, GodLevelRunningState),
+    Paused(Test, Box<GodLevelRunningState>),
+    Playing(Test, Box<GodLevelRunningState>),
     Report(MetaTestResult),
     Succeeded,
 }
@@ -174,7 +188,7 @@ impl GodLevelStatus {
     fn start(&mut self, mut state: LevelState, test: Test) {
         assert!(self.is_stopped());
         if let Ok(()) = state.set_inputs(test.input()) {
-            *self = Self::Playing(test, GodLevelRunningState::new(state));
+            *self = Self::Playing(test, Box::new(GodLevelRunningState::new(state)));
         } else {
             let result = MetaTestResult::new(test, TestResult::NotEnoughInputSpace);
             *self = Self::Report(result);
@@ -227,6 +241,13 @@ impl GodLevelStatus {
             _ => false,
         }
     }
+    fn close_report(&mut self, result: &MetaTestResult) {
+        if result.is_passed() {
+            *self = Self::Succeeded;
+        } else {
+            *self = Self::Stopped;
+        }
+    }
 }
 impl component::Component for GodLevelStatus {
     type DrawArgs = ();
@@ -262,12 +283,9 @@ impl component::Component for GodLevelStatus {
                 NextScene::Continue
             }
             Self::Report(result) => {
+                let result = result.clone();
                 if keyboard.is_pressed("Space") || keyboard.is_pressed("Enter") {
-                    if result.is_passed() {
-                        *self = Self::Succeeded;
-                    } else {
-                        *self = Self::Stopped;
-                    }
+                    self.close_report(&result);
                 }
                 NextScene::Continue
             }
@@ -307,13 +325,11 @@ impl GodLevelRunningState {
 
     fn step(&mut self, dt: f64) {
         self.animation_time += dt;
-        if self.animation_time < GodLevel::MIN_SPEED || !self.current_state.success_state().is_running() {
-            return;
+        while self.animation_time > GodLevel::MIN_SPEED && self.current_state.success_state().is_running() {
+            self.animation_time -= GodLevel::MIN_SPEED;
+            self.old_state.clone_from(&self.current_state);
+            self.current_state.auto();
         }
-
-        self.animation_time = 0.0;
-        self.old_state.clone_from(&self.current_state);
-        self.current_state.auto();
     }
 }
 impl component::Component for GodLevelRunningState {

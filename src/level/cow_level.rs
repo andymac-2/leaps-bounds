@@ -34,13 +34,6 @@ impl CowLevel {
     pub fn from_str(string: &'static str) -> Self {
         CowLevel::from_state(ron::de::from_str::<LevelState>(string).unwrap())
     }
-    pub fn new() -> Self {
-        CowLevel {
-            states: StateStack::new(LevelState::new()),
-            animation_time: 0.0,
-            palette: CellPalette::new(CellType::full_palette()),
-        }
-    }
     fn purge_states(&mut self) {
         self.states.purge_states();
     }
@@ -59,7 +52,7 @@ impl component::Component for CowLevel {
         if !self.in_boundary(point) {
             return false;
         }
-        if self.palette.click(point) {
+        if crate::DEBUG && self.palette.click(point) {
             return true;
         }
 
@@ -79,8 +72,10 @@ impl component::Component for CowLevel {
             .current_state()
             .draw(context, assets, self.states.last_state(), anim_progress);
 
-        self.palette.fill_bg(context, cell_cursor::BG_COLOUR);
-        self.palette.draw(context, assets, ())
+        if crate::DEBUG {
+            self.palette.fill_bg(context, cell_cursor::BG_COLOUR);
+            self.palette.draw(context, assets, ())
+        }
     }
     fn called_into(&mut self, _object: Object) {
         self.purge_states();
@@ -103,7 +98,7 @@ impl component::Component for CowLevel {
             self.states.current_state().log_level();
         }
 
-        // block character movement n success or failure.
+        // block character movement on success or failure.
         match self.states.current_state().success_state() {
             SuccessState::Succeeded => {
                 if !self.is_finished_animating() {

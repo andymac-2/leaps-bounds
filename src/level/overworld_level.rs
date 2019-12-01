@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use web_sys::Storage;
-
 use crate::component::{NextScene, Object};
 use crate::direction::Direction;
 use crate::point::Point;
@@ -121,7 +119,7 @@ impl component::Component for OverworldLevel {
         if !self.in_boundary(point) {
             return false;
         }
-        if self.cell_palette.click(point) {
+        if crate::DEBUG && self.cell_palette.click(point) {
             return true;
         }
 
@@ -136,8 +134,11 @@ impl component::Component for OverworldLevel {
 
         self.state
             .draw(context, assets, (self.old_position, anim_progress));
-        self.cell_palette.fill_bg(context, cell_cursor::BG_COLOUR);
-        self.cell_palette.draw(context, assets, ());
+
+        if crate::DEBUG {
+            self.cell_palette.fill_bg(context, cell_cursor::BG_COLOUR);
+            self.cell_palette.draw(context, assets, ());
+        }
     }
     fn step(&mut self, dt: f64, keyboard_state: &KeyboardState) -> NextScene {
         self.animation_time += dt;

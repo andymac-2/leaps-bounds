@@ -40,6 +40,31 @@ window.KeyboardState = class {
     }
 }
 
+window.BasicAudioPlayer = class {
+    constructor () {
+        this.current_id = null;
+        this.current = null;
+    }
+    play_sound(id) {
+        if (this.current_id === id) {
+            return;
+        }
+
+        if (this.current) {
+            this.current.currentTime = 0;
+        }
+
+        this.current_id = id;
+        this.current = document.getElementById(id);
+        this.current.play();
+
+        this.current.addEventListener('ended', () => {
+            this.current.currentTime = 0;
+            this.current.play();
+        }, false);
+    }
+}
+
 const EMPTY = 255;
 window.draw_layer = function (context, image, sprite_width, sprite_height, data, width, height) {
     const cells = new Uint8Array(imports.bg.memory.buffer, data, width * height * 2);

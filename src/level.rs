@@ -22,7 +22,7 @@ use cow_level::CowLevel;
 const BG_FILL: &str = "#669238";
 
 #[derive(Clone, Debug)]
-struct NotEnoughInputSpace;
+pub struct NotEnoughInputSpace;
 
 #[derive(Debug, Clone, Copy)]
 pub enum KeyboardCommand {
@@ -30,7 +30,7 @@ pub enum KeyboardCommand {
     Space,
 }
 impl KeyboardCommand {
-    fn is_space(&self) -> bool {
+    fn is_space(self) -> bool {
         match self {
             Self::Space => true,
             _ => false,
@@ -79,15 +79,9 @@ pub enum SuccessState {
     Succeeded = 2,
 }
 impl SuccessState {
-    fn is_running(&self) -> bool {
+    fn is_running(self) -> bool {
         match self {
             SuccessState::Running => true,
-            _ => false,
-        }
-    }
-    fn is_success(&self) -> bool {
-        match self {
-            SuccessState::Succeeded => true,
             _ => false,
         }
     }
@@ -133,10 +127,6 @@ impl LevelState {
 
     fn success_state(&self) -> SuccessState {
         self.cows.success_state(&self.board)
-    }
-
-    fn get_overlay_cell_at_point(&mut self, point: Point<i32>) -> OverlayCell {
-        self.board.get_overlay_cell_at_point(point)
     }
     fn set_cell_at_point(&mut self, point: Point<i32>, cell_type: PaletteResult<CellType>) {
         self.board.set_cell_at_point(point, cell_type);

@@ -1,4 +1,4 @@
-use crate::{Context2D, Assets, KeyboardState, util, point};
+use crate::{Context2D, Assets, KeyboardState, point};
 
 use super::{NextScene, Rect};
 
