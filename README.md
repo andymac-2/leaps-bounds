@@ -1,3 +1,7 @@
+# LEAPS and BOWNDS
+
+A puzzle game with COWs.
+
 ## How to install
 
 ```sh
