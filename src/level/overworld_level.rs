@@ -116,10 +116,10 @@ impl component::Component for OverworldLevel {
         CowLevel::BOUNDING_RECT
     }
     fn click(&mut self, point: Point<i32>) -> bool {
-        if !self.in_boundary(point) {
+        if !crate::DEBUG || !self.in_boundary(point) {
             return false;
         }
-        if crate::DEBUG && self.cell_palette.click(point) {
+        if self.cell_palette.click(point) {
             return true;
         }
 

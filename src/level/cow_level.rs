@@ -49,10 +49,10 @@ impl component::Component for CowLevel {
         Self::BOUNDING_RECT
     }
     fn click(&mut self, point: Point<i32>) -> bool {
-        if !self.in_boundary(point) {
+        if !crate::DEBUG || !self.in_boundary(point) {
             return false;
         }
-        if crate::DEBUG && self.palette.click(point) {
+        if self.palette.click(point) {
             return true;
         }
 

@@ -393,8 +393,8 @@ everything works."
 pub const SPEED_TUTORIAL: &[Screen] = &[
     Screen::new(NORMAL_ICON, COW_IMG,
 "A hot tip! If you want your tests to run
-faster, press the SPACE button to fast
-forward",
+faster, use the up and down arrows to
+change your speed.",
     ),
     Screen::new(PHEW_ICON, COW_IMG,
 "Why isn't there a graphical button?
